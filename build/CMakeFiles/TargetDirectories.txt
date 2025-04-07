@@ -1,0 +1,2 @@
+/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles/edit_cache.dir
+/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles/rebuild_cache.dir
