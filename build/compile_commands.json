@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/mnt/e/Programming Projects/C++/Chess Engine/build",
+  "command": "/usr/bin/g++  -I\"/mnt/e/Programming Projects/C++/Chess Engine/include\" -g -std=gnu++17 -o CMakeFiles/OctoKnight.dir/src/main.cpp.o -c \"/mnt/e/Programming Projects/C++/Chess Engine/src/main.cpp\"",
+  "file": "/mnt/e/Programming Projects/C++/Chess Engine/src/main.cpp",
+  "output": "CMakeFiles/OctoKnight.dir/src/main.cpp.o"
+}
+]
