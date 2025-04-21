@@ -69,10 +69,52 @@ include CMakeFiles/OctoKnight.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/OctoKnight.dir/flags.make
 
+CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o: CMakeFiles/OctoKnight.dir/flags.make
+CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o: /mnt/e/Programming\ Projects/C++/Chess\ Engine/src/bitboard.cpp
+CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o: CMakeFiles/OctoKnight.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o -MF CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o.d -o CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o -c "/mnt/e/Programming Projects/C++/Chess Engine/src/bitboard.cpp"
+
+CMakeFiles/OctoKnight.dir/src/bitboard.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/OctoKnight.dir/src/bitboard.cpp.i"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/e/Programming Projects/C++/Chess Engine/src/bitboard.cpp" > CMakeFiles/OctoKnight.dir/src/bitboard.cpp.i
+
+CMakeFiles/OctoKnight.dir/src/bitboard.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/OctoKnight.dir/src/bitboard.cpp.s"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/e/Programming Projects/C++/Chess Engine/src/bitboard.cpp" -o CMakeFiles/OctoKnight.dir/src/bitboard.cpp.s
+
+CMakeFiles/OctoKnight.dir/src/fen.cpp.o: CMakeFiles/OctoKnight.dir/flags.make
+CMakeFiles/OctoKnight.dir/src/fen.cpp.o: /mnt/e/Programming\ Projects/C++/Chess\ Engine/src/fen.cpp
+CMakeFiles/OctoKnight.dir/src/fen.cpp.o: CMakeFiles/OctoKnight.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/OctoKnight.dir/src/fen.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/OctoKnight.dir/src/fen.cpp.o -MF CMakeFiles/OctoKnight.dir/src/fen.cpp.o.d -o CMakeFiles/OctoKnight.dir/src/fen.cpp.o -c "/mnt/e/Programming Projects/C++/Chess Engine/src/fen.cpp"
+
+CMakeFiles/OctoKnight.dir/src/fen.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/OctoKnight.dir/src/fen.cpp.i"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/e/Programming Projects/C++/Chess Engine/src/fen.cpp" > CMakeFiles/OctoKnight.dir/src/fen.cpp.i
+
+CMakeFiles/OctoKnight.dir/src/fen.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/OctoKnight.dir/src/fen.cpp.s"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/e/Programming Projects/C++/Chess Engine/src/fen.cpp" -o CMakeFiles/OctoKnight.dir/src/fen.cpp.s
+
+CMakeFiles/OctoKnight.dir/src/magics.cpp.o: CMakeFiles/OctoKnight.dir/flags.make
+CMakeFiles/OctoKnight.dir/src/magics.cpp.o: /mnt/e/Programming\ Projects/C++/Chess\ Engine/src/magics.cpp
+CMakeFiles/OctoKnight.dir/src/magics.cpp.o: CMakeFiles/OctoKnight.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/OctoKnight.dir/src/magics.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/OctoKnight.dir/src/magics.cpp.o -MF CMakeFiles/OctoKnight.dir/src/magics.cpp.o.d -o CMakeFiles/OctoKnight.dir/src/magics.cpp.o -c "/mnt/e/Programming Projects/C++/Chess Engine/src/magics.cpp"
+
+CMakeFiles/OctoKnight.dir/src/magics.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/OctoKnight.dir/src/magics.cpp.i"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/e/Programming Projects/C++/Chess Engine/src/magics.cpp" > CMakeFiles/OctoKnight.dir/src/magics.cpp.i
+
+CMakeFiles/OctoKnight.dir/src/magics.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/OctoKnight.dir/src/magics.cpp.s"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/e/Programming Projects/C++/Chess Engine/src/magics.cpp" -o CMakeFiles/OctoKnight.dir/src/magics.cpp.s
+
 CMakeFiles/OctoKnight.dir/src/main.cpp.o: CMakeFiles/OctoKnight.dir/flags.make
 CMakeFiles/OctoKnight.dir/src/main.cpp.o: /mnt/e/Programming\ Projects/C++/Chess\ Engine/src/main.cpp
 CMakeFiles/OctoKnight.dir/src/main.cpp.o: CMakeFiles/OctoKnight.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/OctoKnight.dir/src/main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/OctoKnight.dir/src/main.cpp.o"
 	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/OctoKnight.dir/src/main.cpp.o -MF CMakeFiles/OctoKnight.dir/src/main.cpp.o.d -o CMakeFiles/OctoKnight.dir/src/main.cpp.o -c "/mnt/e/Programming Projects/C++/Chess Engine/src/main.cpp"
 
 CMakeFiles/OctoKnight.dir/src/main.cpp.i: cmake_force
@@ -85,15 +127,21 @@ CMakeFiles/OctoKnight.dir/src/main.cpp.s: cmake_force
 
 # Object files for target OctoKnight
 OctoKnight_OBJECTS = \
+"CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o" \
+"CMakeFiles/OctoKnight.dir/src/fen.cpp.o" \
+"CMakeFiles/OctoKnight.dir/src/magics.cpp.o" \
 "CMakeFiles/OctoKnight.dir/src/main.cpp.o"
 
 # External object files for target OctoKnight
 OctoKnight_EXTERNAL_OBJECTS =
 
+OctoKnight: CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o
+OctoKnight: CMakeFiles/OctoKnight.dir/src/fen.cpp.o
+OctoKnight: CMakeFiles/OctoKnight.dir/src/magics.cpp.o
 OctoKnight: CMakeFiles/OctoKnight.dir/src/main.cpp.o
 OctoKnight: CMakeFiles/OctoKnight.dir/build.make
 OctoKnight: CMakeFiles/OctoKnight.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable OctoKnight"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="/mnt/e/Programming Projects/C++/Chess Engine/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX executable OctoKnight"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/OctoKnight.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

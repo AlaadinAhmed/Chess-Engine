@@ -1,1 +1,1 @@
-/usr/bin/g++ -g CMakeFiles/OctoKnight.dir/src/main.cpp.o -o OctoKnight 
+/usr/bin/g++ -g CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o CMakeFiles/OctoKnight.dir/src/fen.cpp.o CMakeFiles/OctoKnight.dir/src/magics.cpp.o CMakeFiles/OctoKnight.dir/src/main.cpp.o -o OctoKnight 

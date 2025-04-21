@@ -129,6 +129,78 @@ OctoKnight/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/build
 .PHONY : OctoKnight/fast
 
+src/bitboard.o: src/bitboard.cpp.o
+.PHONY : src/bitboard.o
+
+# target to build an object file
+src/bitboard.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o
+.PHONY : src/bitboard.cpp.o
+
+src/bitboard.i: src/bitboard.cpp.i
+.PHONY : src/bitboard.i
+
+# target to preprocess a source file
+src/bitboard.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/bitboard.cpp.i
+.PHONY : src/bitboard.cpp.i
+
+src/bitboard.s: src/bitboard.cpp.s
+.PHONY : src/bitboard.s
+
+# target to generate assembly for a file
+src/bitboard.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/bitboard.cpp.s
+.PHONY : src/bitboard.cpp.s
+
+src/fen.o: src/fen.cpp.o
+.PHONY : src/fen.o
+
+# target to build an object file
+src/fen.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/fen.cpp.o
+.PHONY : src/fen.cpp.o
+
+src/fen.i: src/fen.cpp.i
+.PHONY : src/fen.i
+
+# target to preprocess a source file
+src/fen.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/fen.cpp.i
+.PHONY : src/fen.cpp.i
+
+src/fen.s: src/fen.cpp.s
+.PHONY : src/fen.s
+
+# target to generate assembly for a file
+src/fen.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/fen.cpp.s
+.PHONY : src/fen.cpp.s
+
+src/magics.o: src/magics.cpp.o
+.PHONY : src/magics.o
+
+# target to build an object file
+src/magics.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/magics.cpp.o
+.PHONY : src/magics.cpp.o
+
+src/magics.i: src/magics.cpp.i
+.PHONY : src/magics.i
+
+# target to preprocess a source file
+src/magics.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/magics.cpp.i
+.PHONY : src/magics.cpp.i
+
+src/magics.s: src/magics.cpp.s
+.PHONY : src/magics.s
+
+# target to generate assembly for a file
+src/magics.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/OctoKnight.dir/build.make CMakeFiles/OctoKnight.dir/src/magics.cpp.s
+.PHONY : src/magics.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -162,6 +234,15 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... OctoKnight"
+	@echo "... src/bitboard.o"
+	@echo "... src/bitboard.i"
+	@echo "... src/bitboard.s"
+	@echo "... src/fen.o"
+	@echo "... src/fen.i"
+	@echo "... src/fen.s"
+	@echo "... src/magics.o"
+	@echo "... src/magics.i"
+	@echo "... src/magics.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

@@ -8,6 +8,9 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/mnt/e/Programming Projects/C++/Chess Engine/src/bitboard.cpp" "CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o" "gcc" "CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o.d"
+  "/mnt/e/Programming Projects/C++/Chess Engine/src/fen.cpp" "CMakeFiles/OctoKnight.dir/src/fen.cpp.o" "gcc" "CMakeFiles/OctoKnight.dir/src/fen.cpp.o.d"
+  "/mnt/e/Programming Projects/C++/Chess Engine/src/magics.cpp" "CMakeFiles/OctoKnight.dir/src/magics.cpp.o" "gcc" "CMakeFiles/OctoKnight.dir/src/magics.cpp.o.d"
   "/mnt/e/Programming Projects/C++/Chess Engine/src/main.cpp" "CMakeFiles/OctoKnight.dir/src/main.cpp.o" "gcc" "CMakeFiles/OctoKnight.dir/src/main.cpp.o.d"
   )
 

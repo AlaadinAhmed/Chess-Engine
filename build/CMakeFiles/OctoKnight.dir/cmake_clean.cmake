@@ -1,4 +1,10 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o"
+  "CMakeFiles/OctoKnight.dir/src/bitboard.cpp.o.d"
+  "CMakeFiles/OctoKnight.dir/src/fen.cpp.o"
+  "CMakeFiles/OctoKnight.dir/src/fen.cpp.o.d"
+  "CMakeFiles/OctoKnight.dir/src/magics.cpp.o"
+  "CMakeFiles/OctoKnight.dir/src/magics.cpp.o.d"
   "CMakeFiles/OctoKnight.dir/src/main.cpp.o"
   "CMakeFiles/OctoKnight.dir/src/main.cpp.o.d"
   "OctoKnight"
