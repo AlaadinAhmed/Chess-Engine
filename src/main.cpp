@@ -1,103 +1,65 @@
 #include <iostream>
 #include <string>
 #include <cstdint>
+#include "print.hpp"
 #include "bitboard.hpp"
 #include "fen.hpp"
 #include "position.hpp"
-void printBoard(uint64_t pieces);
-void printSequentialBoard(const uint64_t pieces[]);
-int main() {
+#include "movegen.hpp"
+
+void testMoveGeneration() {
     Position board;
-    std::string inputFen = "";
-    std::cin >> inputFen ;
-    parseFEN(board,inputFen);
+    // Test starting position
+    parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    
+    std::cout << "Testing from starting position:\n\n";
+    
+    // Test pawn moves
+    std::cout << "White pawn moves from e2:\n";
+    uint64_t whitePawnMoves = GetPawnMoves(board, 12); // e2 square
+    printBoard(whitePawnMoves);
+    std::cout << "Expected moves: e3 and e4\n\n";
+    
+    std::cout << "Black pawn moves from e7:\n";
+    board.whiteToMove = false;
+    uint64_t blackPawnMoves = GetPawnMoves(board, 52); // e7 square
+    printBoard(blackPawnMoves);
+    std::cout << "Expected moves: e6 and e5\n\n";
+    
+    // Test king moves
+    board.whiteToMove = true;
+    std::cout << "White king moves (should be empty in starting position):\n";
+    uint64_t whiteKingMoves = GetKingMoves(board, 0);
+    printBoard(whiteKingMoves);
+    std::cout << "\n";
+    
+    // Test knight moves
+    std::cout << "Knight attacks from b1:\n";
+    uint64_t knightAttacks = GetKnightAttacks(board,57 );
+    printBoard(knightAttacks);
+    std::cout << "\n";
+    
+    // Test attacked squares
+    std::cout << "Squares attacked by black:\n";
+    board.whiteToMove = true;
+    uint64_t attackedSquares = peekAttackedSquares(board);
+    printBoard(attackedSquares);
+    std::cout << "\n";
+    
+    // Test middle game position
+    std::cout << "Testing from middle game position:\n";
+    parseFEN(board, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
     printBoard(board.occupiedSquares);
-    return 0;
+    std::cout << "\n";
+    
+    board.whiteToMove = true;
+    std::cout << "White king moves in middle game:\n";
+    whiteKingMoves = GetKingMoves(board, 0);
+    printBoard(whiteKingMoves);
+    std::cout << "\n";
 }
 
-void printBoard(uint64_t pieces) {
-    for (int i = 0; i < 64; i++) {
-        // Print a piece if the current bit is set
-        switch (i)
-        {
-        case 0:
-            std::cout << "8   ";
-        break;
-        case 8:
-            std::cout << "7   ";
-        break;
-        case 16:
-            std::cout << "6   ";
-        break;
-        case 24:
-            std::cout << "5   ";
-        break;
-        case 32:
-            std::cout << "4   ";
-        break;
-        case 40:
-            std::cout << "3   ";
-        break;
-        case 48:
-            std::cout << "2   ";
-        break;
-        case 56:
-            std::cout << "1   ";
-        break;
-        
-        default:
-            break;
-        }
-        if (pieces & (1ULL << (63 - i))) {
-            std::cout << "1 ";  // "X" represents a piece
-        } else {
-            std::cout << "0 ";  // "." represents an empty square
-        }
-        // After every 8 bits (one rank), print a new line
-        if ((i + 1) % 8 == 0) {
-            std::cout << std::endl;
-        }
-    }
-    std::cout << "\n   a b c d e f g h \n";
-}
-void printSequentialBoard(const uint64_t pieces[]) {
-    for (int j = 0; j < 64; j++){
-        std::string square;
-        int rank = 0;
-        rank = j / 8;
-        switch (j - rank*8)
-        {
-        case 7:
-            square += "h";
-            break;
-        case 6:
-            square += "g";
-            break;
-        case 5:
-            square += "f";
-            break;
-        case 4:
-            square += "e";
-            break;
-        case 3:
-            square += "d";
-            break;
-        case 2:
-            square += "c";
-            break;
-        case 1:
-            square += "b";
-            break;
-        case 0:
-            square += "a";
-            break;
-        
-        default:
-            break;
-        }
-        square += std::to_string(8 - rank);
-        std::cout << square << " :   " << std::endl;
-        printBoard(pieces[j]);
-        std::cout << std::endl << std::endl;
-    }
+int main() {
+    testMoveGeneration();
+    return 0;
 }

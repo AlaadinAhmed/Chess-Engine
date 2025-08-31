@@ -89,4 +89,4 @@ struct  Move{
 bool getBit(uint64_t bitboard, int rank, int file);
 void setBit(uint64_t &bitboard, int rank, int file);
 void ToggleBit(uint64_t &bitboard, int rank, int file);
-
+uint64_t setBitboard(int square);

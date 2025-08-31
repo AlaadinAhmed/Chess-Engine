@@ -1,4 +1,5 @@
 #include "../include/bitboard.hpp"
+#include <cstdint>
 
 bool getBit( uint64_t bitboard, int rank, int file){
     uint64_t temporaryBitboard = 1ULL << (rank*8 + file);
@@ -11,4 +12,8 @@ void setBit(uint64_t &bitboard, int rank, int file){
 void ToggleBit(uint64_t &bitboard, int rank, int file){
     uint64_t temporaryBitboard = 1ULL << (rank*8 + file);
     bitboard = bitboard ^ temporaryBitboard;
+}
+uint64_t setBitboard(int square){
+    uint64_t bitboard = 1ULL << square;
+    return bitboard;
 }

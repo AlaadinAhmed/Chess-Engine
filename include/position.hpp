@@ -1,28 +1,28 @@
 #pragma once
 #include <cstdint>
 struct Position{
-    uint64_t BlackKnights;
-    uint64_t BlackBishops;
-    uint64_t BlackRooks;
-    uint64_t BlackQueen;
-    uint64_t BlackKing;
-    uint64_t BlackPawns;
+    uint64_t BlackKnights = 0;
+    uint64_t BlackBishops = 0;
+    uint64_t BlackRooks = 0;
+    uint64_t BlackQueen = 0;
+    uint64_t BlackKing = 0;
+    uint64_t BlackPawns = 0;
 
-    uint64_t WhiteKnights;
-    uint64_t WhiteBishops;
-    uint64_t WhiteRooks;
-    uint64_t WhiteQueen;
-    uint64_t WhiteKing;
-    uint64_t WhitePawns;
+    uint64_t WhiteKnights = 0;
+    uint64_t WhiteBishops = 0;
+    uint64_t WhiteRooks = 0;
+    uint64_t WhiteQueen = 0;
+    uint64_t WhiteKing = 0;
+    uint64_t WhitePawns = 0;
 
-    bool whiteToMove;
-    uint64_t unpassant;
-    int move50rule;
-    int move;
-    uint8_t castlingRights;
+    bool whiteToMove ;
+    uint64_t enPassant = 0;
+    int move50rule = 0;
+    int move = 0;
+    uint8_t castelingRights = 0;
 
-    uint64_t BlackoccupiedSquares;
-    uint64_t WhiteoccupiedSquares;
-    uint64_t occupiedSquares;
-    uint64_t emptySquares;
+    uint64_t BlackoccupiedSquares = 0;
+    uint64_t WhiteoccupiedSquares = 0;
+    uint64_t occupiedSquares = 0;
+    uint64_t emptySquares = 0;
 };
