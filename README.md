@@ -26,6 +26,6 @@
 ### 💻 Clone & Build
 
 ```bash
-git clone https://github.com/your-username/octoknight.git
+git clone https://github.com/AladdinAhmed/octoknight.git
 cd octoknight
 make          # or use cmake .
