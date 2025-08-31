@@ -42,7 +42,7 @@ inline void printBoard(uint64_t pieces) {
             std::cout << std::endl;
         }
     }
-    std::cout << "\n   a b c d e f g h \n";
+    std::cout << "\n    a b c d e f g h \n";
 }
 inline void printSequentialBoard(const uint64_t pieces[]) {
     for (int j = 0; j < 64; j++){

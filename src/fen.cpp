@@ -15,28 +15,29 @@ void parseFEN(Position &pos, std::string fen = defaultFEN){
             file = file - (fen[i] - '0');
         }
         else{
-            uint64_t mask = 0x8000000000000000ULL >> ((rank*8) + (8-file));
+            uint64_t mask = 0x8000000000000000ULL >> ((rank*8) + (8-file));  // Change >> to <<
             if (rank < 8){
-            switch (fen[i])
-            {
-            case 'P': pos.BlackPawns |= mask; break;
-            case 'R': pos.BlackRooks |= mask; break;
-            case 'N': pos.BlackKnights |= mask; break;
-            case 'B': pos.BlackBishops |= mask; break;
-            case 'Q': pos.BlackQueen |= mask; break;
-            case 'K': pos.BlackKing |= mask; break;
-            
-            case 'r': pos.WhiteRooks |= mask; break;
-            case 'n': pos.WhiteKnights |= mask; break;
-            case 'b': pos.WhiteBishops |= mask; break;
-            case 'q': pos.WhiteQueen |= mask; break;
-            case 'k': pos.WhiteKing |= mask; break;
-            case 'p': pos.WhitePawns |= mask; break;
-            
-
-            
-            default: rank++; i++; break;
-            }
+            // Change these cases
+    switch (fen[i])
+    {
+        // White pieces (uppercase)
+        case 'P': pos.WhitePawns |= mask; break;
+        case 'R': pos.WhiteRooks |= mask; break;
+        case 'N': pos.WhiteKnights |= mask; break;
+        case 'B': pos.WhiteBishops |= mask; break;
+        case 'Q': pos.WhiteQueen |= mask; break;
+        case 'K': pos.WhiteKing |= mask; break;
+        
+        // Black pieces (lowercase)
+        case 'p': pos.BlackPawns |= mask; break;
+        case 'r': pos.BlackRooks |= mask; break;
+        case 'n': pos.BlackKnights |= mask; break;
+        case 'b': pos.BlackBishops |= mask; break;
+        case 'q': pos.BlackQueen |= mask; break;
+        case 'k': pos.BlackKing |= mask; break;
+        
+        default: rank++; i++; break;
+    }
         }
             file--;
         }
@@ -64,21 +65,18 @@ void parseFEN(Position &pos, std::string fen = defaultFEN){
             rank++;
             i++;
         }
-        else if (rank == 10){
-            if (fen[i] == '-'){
+        else if (rank == 10) {
+            if (fen[i] == '-') {
                 pos.enPassant = 0;
             }
             else {
-                int square = 0;
-                square = square + (fen[i] - 'a');
-                if (isdigit(fen[i])){
-                    square = (fen[i] - '1')*8;
-                }
-                uint64_t mask = 1ULL << square;
-                pos.enPassant |= mask;
+                int file = fen[i] - 'a';
+                i++;  // Move to rank character
+                int rank = fen[i] - '1';
+                int square = rank * 8 + file;
+                pos.enPassant = 1ULL << square;
             }
             rank++;
-            i++;
         }
         else if (rank == 11){
             pos.move50rule = fen[i] - '0';

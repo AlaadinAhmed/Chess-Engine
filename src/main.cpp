@@ -60,6 +60,10 @@ void testMoveGeneration() {
 }
 
 int main() {
+    Position pos;
+parseFEN(pos, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+printBoard(pos.WhitePawns);  // Should show pawns on rank 2
+printBoard(pos.BlackPawns);  // Should show pawns on rank
     testMoveGeneration();
     return 0;
 }
