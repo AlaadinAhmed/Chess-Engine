@@ -38,6 +38,28 @@ void parseFEN(Position &pos, std::string fen = defaultFEN){
         
         default: rank++; i++; break;
     }
+        // std::cout << "white rooks";
+        // printBoard(pos.WhiteRooks);
+        // std::cout << "white knights";
+        // printBoard(pos.WhiteKnights);
+        // std::cout << "white bishops";
+        // printBoard(pos.WhiteBishops);
+        // std::cout << "white queen";
+        // printBoard(pos.WhiteQueen);
+        // std::cout << "white king";
+        // printBoard(pos.WhiteKing);
+        // std::cout << "black pawns";
+        // printBoard(pos.BlackPawns);
+        // std::cout << "black rooks";
+        // printBoard(pos.BlackRooks);
+        // std::cout << "black knights";
+        // printBoard(pos.BlackKnights);
+        // std::cout << "black bishops";
+        // printBoard(pos.BlackBishops);
+        // std::cout << "black queen";
+        // printBoard( pos.BlackQueen );
+        // std::cout << "black king";
+        // printBoard( pos.BlackKing );
         }
             file--;
         }
