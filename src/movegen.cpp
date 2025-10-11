@@ -4,6 +4,7 @@
 #include "movegen.hpp"
 #include "magics.hpp"
 #include "print.hpp"
+#include "bitboard.hpp"
 // uint64_t peekAttackedSquares(Position pos) {
 //     uint64_t attackedSquares = 0ULL;
     
@@ -37,7 +38,7 @@
 //         if (pos.whiteToMove) {
 //             if (pos.BlackBishops & bitboard) {
 //                 attackedSquares |= get_bishop_attacks(square, pos.occupiedSquares);
-//             }
+ //             }
 //         } else {
 //             if (pos.WhiteBishops & bitboard) {
 //                 attackedSquares |= get_bishop_attacks(square, pos.occupiedSquares);
@@ -313,7 +314,7 @@ void initKingAttacks() {
 //         // Remove squares occupied by friendly pieces and attacked squares
 //         moves &= ~(pos.WhiteoccupiedSquares | attackedSquares);
 //     } else {
-//         kingSquare = __builtin_ctzll(pos.BlackKing);
+//         kingSquare = __builtin_ctzll(pos.BlackKnightsing);
 //         moves = kingAttacks[kingSquare];
 //         // Remove squares occupied by friendly pieces and attacked squares
 //         moves &= ~(pos.BlackoccupiedSquares | attackedSquares);
@@ -333,3 +334,404 @@ uint64_t GetKnightAttacks(Position pos, int square) {
     }
     return knightAttacks[square] & ~(pos.BlackoccupiedSquares | pos.WhiteoccupiedSquares);
 }
+uint64_t GetQueenAttacks(Position pos, int square){
+  if (pos.whiteToMove){
+    if (getBit(pos.WhiteQueen, square)){
+      return get_rook_attacks(square, pos.occupiedSquares) || get_bishop_attacks(square, pos.occupiedSquares);
+    }
+  }
+  else if (!pos.whiteToMove){
+    if (getBit(pos.BlackQueen, square)){
+      return get_rook_attacks(square, pos.occupiedSquares) || get_bishop_attacks(square, pos.occupiedSquares);
+    
+    }
+  }
+  else{
+    return 1;
+  }
+      return get_rook_attacks(square, pos.occupiedSquares) || get_bishop_attacks(square, pos.occupiedSquares);
+}
+void makemove(Position& pos,Move m){ 
+  if (getBit(pos.occupiedSquares, m.from)){
+    if (getBit(pos.WhiteoccupiedSquares, m.from)){
+      if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to)){
+        pos.WhitePawns += setBitboard(m.to);
+        pos.WhitePawns -= setBitboard(m.from);
+        if (getBit(pos.BlackoccupiedSquares, m.from)){
+          if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+            pos.BlackPawns |= setBitboard(m.to);
+            pos.WhitePawns ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+            pos.BlackKnights |= setBitboard(m.to);
+            pos.BlackKnights ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+            pos.BlackBishops |= setBitboard(m.to);
+            pos.BlackBishops ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+            pos.BlackRooks |= setBitboard(m.to);
+            pos.BlackRooks ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+            pos.BlackKing |= setBitboard(m.to);
+            pos.BlackKing ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+            pos.BlackQueen |= setBitboard(m.to);
+            pos.BlackQueen ^= setBitboard(m.from);
+          }
+      }
+    }
+      if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+        pos.WhiteKnights |= setBitboard(m.to);
+        pos.WhiteKnights ^= setBitboard(m.from);
+        if (getBit(pos.BlackoccupiedSquares, m.from)){
+          if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+            pos.BlackPawns |= setBitboard(m.to);
+            pos.WhitePawns ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+            pos.BlackKnights |= setBitboard(m.to);
+            pos.BlackKnights ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+            pos.BlackBishops |= setBitboard(m.to);
+            pos.BlackBishops ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+            pos.BlackRooks |= setBitboard(m.to);
+            pos.BlackRooks ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+            pos.BlackKing |= setBitboard(m.to);
+            pos.BlackKing ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+            pos.BlackQueen |= setBitboard(m.to);
+            pos.BlackQueen ^= setBitboard(m.from);
+          }
+
+      }
+      }
+      if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+        pos.WhiteBishops |= setBitboard(m.to);
+        pos.WhiteBishops ^= setBitboard(m.from);
+        if (getBit(pos.BlackoccupiedSquares, m.from)){
+          if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+            pos.BlackPawns |= setBitboard(m.to);
+            pos.WhitePawns ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+            pos.BlackKnights |= setBitboard(m.to);
+            pos.BlackKnights ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+            pos.BlackBishops |= setBitboard(m.to);
+            pos.BlackBishops ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+            pos.BlackRooks |= setBitboard(m.to);
+            pos.BlackRooks ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+            pos.BlackKing |= setBitboard(m.to);
+            pos.BlackKing ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+            pos.BlackQueen |= setBitboard(m.to);
+            pos.BlackQueen ^= setBitboard(m.from);
+          }
+
+      }
+    }
+      if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+        pos.WhiteRooks |= setBitboard(m.to);
+        pos.WhiteRooks ^= setBitboard(m.from);
+        if (getBit(pos.BlackoccupiedSquares, m.from)){
+          if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+            pos.BlackPawns |= setBitboard(m.to);
+            pos.WhitePawns ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+            pos.BlackKnights |= setBitboard(m.to);
+            pos.BlackKnights ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+            pos.BlackBishops |= setBitboard(m.to);
+            pos.BlackBishops ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+            pos.BlackRooks |= setBitboard(m.to);
+            pos.BlackRooks ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+            pos.BlackKing |= setBitboard(m.to);
+            pos.BlackKing ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+            pos.BlackQueen |= setBitboard(m.to);
+            pos.BlackQueen ^= setBitboard(m.from);
+          }
+
+      }
+      }
+      if (getBit(pos.WhiteKing, m.from) && getBit(GetKingMoves(pos), m.to) ){
+        pos.WhiteKing |= setBitboard(m.to);
+        pos.WhiteKing ^= setBitboard(m.from);
+        if (getBit(pos.BlackoccupiedSquares, m.from)){
+          if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+            pos.BlackPawns |= setBitboard(m.to);
+            pos.WhitePawns ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+            pos.BlackKnights |= setBitboard(m.to);
+            pos.BlackKnights ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+            pos.BlackBishops |= setBitboard(m.to);
+            pos.BlackBishops ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+            pos.BlackRooks |= setBitboard(m.to);
+            pos.BlackRooks ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+            pos.BlackKing |= setBitboard(m.to);
+            pos.BlackKing ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+            pos.BlackQueen |= setBitboard(m.to);
+            pos.BlackQueen ^= setBitboard(m.from);
+          }
+        }
+      }
+      if (getBit(pos.WhiteQueen, m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+        pos.WhiteQueen |= setBitboard(m.to);
+        pos.WhiteQueen ^= setBitboard(m.from);
+        if (getBit(pos.BlackoccupiedSquares, m.from)){
+          if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+            pos.BlackPawns |= setBitboard(m.to);
+            pos.WhitePawns ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+            pos.BlackKnights |= setBitboard(m.to);
+            pos.BlackKnights ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+            pos.BlackBishops |= setBitboard(m.to);
+            pos.BlackBishops ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+            pos.BlackRooks |= setBitboard(m.to);
+            pos.BlackRooks ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+            pos.BlackKing |= setBitboard(m.to);
+            pos.BlackKing ^= setBitboard(m.from);
+          }
+          if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+            pos.BlackQueen |= setBitboard(m.to);
+            pos.BlackQueen ^= setBitboard(m.from);
+          }
+
+        }
+      }
+      else{
+        return;
+      }
+    }
+    else if (getBit(pos.BlackoccupiedSquares, m.from)){
+        if (getBit(pos.BlackPawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.BlackPawns |= setBitboard(m.to);
+          pos.BlackPawns ^= setBitboard(m.from);
+      if (getBit(pos.WhiteoccupiedSquares, m.from)){
+        if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.WhitePawns |= setBitboard(m.to);
+          pos.WhitePawns ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.WhiteKnights |= setBitboard(m.to);
+          pos.WhiteKnights ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.WhiteBishops |= setBitboard(m.to);
+          pos.WhiteBishops ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.WhiteRooks |= setBitboard(m.to);
+          pos.WhiteRooks ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.WhiteKing |= setBitboard(m.to);
+          pos.WhiteKing ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.WhiteQueen |= setBitboard(m.to);
+          pos.WhiteQueen ^= setBitboard(m.from);
+        }
+
+      }
+    }
+        if (getBit(pos.BlackKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.BlackKnights |= setBitboard(m.to);
+          pos.BlackKnights ^= setBitboard(m.from);
+      if (getBit(pos.WhiteoccupiedSquares,m.from)){
+        if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.WhitePawns |= setBitboard(m.to);
+          pos.WhitePawns ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.WhiteKnights |= setBitboard(m.to);
+          pos.WhiteKnights ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.WhiteBishops |= setBitboard(m.to);
+          pos.WhiteBishops ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.WhiteRooks |= setBitboard(m.to);
+          pos.WhiteRooks ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.WhiteKing |= setBitboard(m.to);
+          pos.WhiteKing ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.WhiteQueen |= setBitboard(m.to);
+          pos.WhiteQueen ^= setBitboard(m.from);
+        }
+      }
+    }
+    
+        if (getBit(pos.BlackBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.BlackBishops |= setBitboard(m.to);
+          pos.BlackBishops ^= setBitboard(m.from);
+      if (getBit(pos.WhiteoccupiedSquares, m.from)){
+        if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.WhitePawns |= setBitboard(m.to);
+          pos.WhitePawns ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.WhiteKnights |= setBitboard(m.to);
+          pos.WhiteKnights ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.WhiteBishops |= setBitboard(m.to);
+          pos.WhiteBishops ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.WhiteRooks |= setBitboard(m.to);
+          pos.WhiteRooks ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.WhiteKing |= setBitboard(m.to);
+          pos.WhiteKing ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.WhiteQueen |= setBitboard(m.to);
+          pos.WhiteQueen ^= setBitboard(m.from);
+        }
+      }
+    }
+        if (getBit(pos.BlackRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.BlackRooks |= setBitboard(m.to);
+          pos.BlackRooks ^= setBitboard(m.from);
+      if (getBit(pos.WhiteoccupiedSquares, m.from)){
+        if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.WhitePawns |= setBitboard(m.to);
+          pos.WhitePawns ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.WhiteKnights |= setBitboard(m.to);
+          pos.WhiteKnights ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.WhiteBishops |= setBitboard(m.to);
+          pos.WhiteBishops ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.WhiteRooks |= setBitboard(m.to);
+          pos.WhiteRooks ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.WhiteKing |= setBitboard(m.to);
+          pos.WhiteKing ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.WhiteQueen |= setBitboard(m.to);
+          pos.WhiteQueen ^= setBitboard(m.from);
+        }
+      }
+    }
+        if (getBit(pos.BlackKing, m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.BlackKing |= setBitboard(m.to);
+          pos.BlackKing ^= setBitboard(m.from);
+      if (getBit(pos.WhiteoccupiedSquares, m.from)){
+        if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.WhitePawns |= setBitboard(m.to);
+          pos.WhitePawns ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.WhiteKnights |= setBitboard(m.to);
+          pos.WhiteKnights ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.WhiteBishops |= setBitboard(m.to);
+          pos.WhiteBishops ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.WhiteRooks |= setBitboard(m.to);
+          pos.WhiteRooks ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKing, m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.WhiteKing |= setBitboard(m.to);
+          pos.WhiteKing ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.WhiteQueen |= setBitboard(m.to);
+          pos.WhiteQueen ^= setBitboard(m.from);
+        }
+      }
+    }
+        if (getBit(pos.BlackQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.BlackQueen |= setBitboard(m.to);
+          pos.BlackQueen ^= setBitboard(m.from);
+      if (getBit(pos.WhiteoccupiedSquares, m.from)){
+        if (getBit(pos.WhitePawns, m.from) && getBit(GetPawnMoves(pos,m.from), m.to) ){
+          pos.WhitePawns |= setBitboard(m.to);
+          pos.WhitePawns ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKnights, m.from) && getBit(GetKnightAttacks(pos,m.from), m.to) ){
+          pos.WhiteKnights |= setBitboard(m.to);
+          pos.WhiteKnights ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteBishops, m.from) && getBit(get_bishop_attacks(m.from,pos.occupiedSquares), m.to) ){
+          pos.WhiteBishops |= setBitboard(m.to);
+          pos.WhiteBishops ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteRooks, m.from) && getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to) ){
+          pos.WhiteRooks |= setBitboard(m.to);
+          pos.WhiteRooks ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteKing ,m.from) && getBit(GetKingMoves(pos), m.to) ){
+          pos.WhiteKing |= setBitboard(m.to);
+          pos.WhiteKing ^= setBitboard(m.from);
+        }
+        if (getBit(pos.WhiteQueen ,m.from) && getBit(GetQueenAttacks(pos,m.from), m.to) ){
+          pos.WhiteQueen |= setBitboard(m.to);
+          pos.WhiteQueen ^= setBitboard(m.from);
+        }
+      }
+    }
+    }
+    else{
+      return;
+    }
+  }
+  else{
+    return;
+  }
+}
+

@@ -33,8 +33,7 @@ struct Position{
     BlackQueen = 0;
     BlackKing = 0;
     BlackPawns = 0;
-
-    WhiteKnights = 0;
+WhiteKnights = 0;
     WhiteBishops = 0;
     WhiteRooks = 0;
     WhiteQueen = 0;

@@ -10,3 +10,5 @@ uint64_t GetKingMoves (Position pos);
 void initKingAttacks();
 uint64_t GetKnightMoves (Position pos);
 uint64_t GetKnightAttacks (Position pos, int square);
+uint64_t GetQueenAttacks(Position pos, int square);
+void makemove (Position& pos, Move m);
