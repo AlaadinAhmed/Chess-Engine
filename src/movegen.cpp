@@ -1,7 +1,13 @@
 #include "movegen.hpp"
 #include "bitboard.hpp"
+#include "hash.hpp"
 #include "magics.hpp"
 #include "position.hpp"
+#include "search.hpp"
+#include <cstdint>
+extern uint64_t currentHashKey;
+extern UndoInfo history[];
+extern ZobristKeys zkey;
 // uint64_t peekAttackedSquares(Position pos) {
 //     uint64_t attackedSquares = 0ULL;
 
@@ -363,12 +369,17 @@ uint64_t GetQueenAttacks(Position pos, int square) {
          get_bishop_attacks(square, pos.occupiedSquares);
 }
 void makemove(Position &pos, Move m) {
+  history->oldHashKey = currentHashKey;
   if (getBit(pos.occupiedSquares, m.from)) {
+    history->side = pos.whiteToMove;
+    currentHashKey ^= zkey.sideKey;
     if (getBit(pos.WhiteoccupiedSquares, m.from)) {
       if (getBit(pos.WhitePawns, m.from) &&
           getBit(GetPawnMoves(pos, m.from), m.to)) {
-        pos.WhitePawns += setBitboard(m.to);
-        pos.WhitePawns -= setBitboard(m.from);
+        pos.WhitePawns ^= setBitboard(m.to);
+        pos.WhitePawns ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[W_PAWN][m.from];
+        currentHashKey ^= zkey.pieceKeys[W_PAWN][m.to];
         if (getBit(pos.BlackoccupiedSquares, m.from)) {
           if (getBit(pos.BlackPawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -406,6 +417,8 @@ void makemove(Position &pos, Move m) {
           getBit(GetKnightAttacks(pos, m.from), m.to)) {
         pos.WhiteKnights |= setBitboard(m.to);
         pos.WhiteKnights ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[W_KNIGHT][m.from];
+        currentHashKey ^= zkey.pieceKeys[W_KNIGHT][m.to];
         if (getBit(pos.BlackoccupiedSquares, m.from)) {
           if (getBit(pos.BlackPawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -443,6 +456,8 @@ void makemove(Position &pos, Move m) {
           getBit(get_bishop_attacks(m.from, pos.occupiedSquares), m.to)) {
         pos.WhiteBishops |= setBitboard(m.to);
         pos.WhiteBishops ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[W_BISHOP][m.from];
+        currentHashKey ^= zkey.pieceKeys[W_BISHOP][m.to];
         if (getBit(pos.BlackoccupiedSquares, m.from)) {
           if (getBit(pos.BlackPawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -480,6 +495,8 @@ void makemove(Position &pos, Move m) {
           getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to)) {
         pos.WhiteRooks |= setBitboard(m.to);
         pos.WhiteRooks ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[W_ROOK][m.from];
+        currentHashKey ^= zkey.pieceKeys[W_ROOK][m.to];
         if (getBit(pos.BlackoccupiedSquares, m.from)) {
           if (getBit(pos.BlackPawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -516,6 +533,8 @@ void makemove(Position &pos, Move m) {
       if (getBit(pos.WhiteKing, m.from) && getBit(GetKingMoves(pos), m.to)) {
         pos.WhiteKing |= setBitboard(m.to);
         pos.WhiteKing ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[W_KING][m.from];
+        currentHashKey ^= zkey.pieceKeys[W_KING][m.to];
         if (getBit(pos.BlackoccupiedSquares, m.from)) {
           if (getBit(pos.BlackPawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -553,6 +572,8 @@ void makemove(Position &pos, Move m) {
           getBit(GetQueenAttacks(pos, m.from), m.to)) {
         pos.WhiteQueen |= setBitboard(m.to);
         pos.WhiteQueen ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[W_QUEEN][m.from];
+        currentHashKey ^= zkey.pieceKeys[W_QUEEN][m.to];
         if (getBit(pos.BlackoccupiedSquares, m.from)) {
           if (getBit(pos.BlackPawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -593,6 +614,8 @@ void makemove(Position &pos, Move m) {
           getBit(GetPawnMoves(pos, m.from), m.to)) {
         pos.BlackPawns |= setBitboard(m.to);
         pos.BlackPawns ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[B_PAWN][m.from];
+        currentHashKey ^= zkey.pieceKeys[B_PAWN][m.to];
         if (getBit(pos.WhiteoccupiedSquares, m.from)) {
           if (getBit(pos.WhitePawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -630,6 +653,8 @@ void makemove(Position &pos, Move m) {
           getBit(GetKnightAttacks(pos, m.from), m.to)) {
         pos.BlackKnights |= setBitboard(m.to);
         pos.BlackKnights ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[B_KNIGHT][m.from];
+        currentHashKey ^= zkey.pieceKeys[B_KNIGHT][m.to];
         if (getBit(pos.WhiteoccupiedSquares, m.from)) {
           if (getBit(pos.WhitePawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -663,11 +688,12 @@ void makemove(Position &pos, Move m) {
           }
         }
       }
-
       if (getBit(pos.BlackBishops, m.from) &&
           getBit(get_bishop_attacks(m.from, pos.occupiedSquares), m.to)) {
         pos.BlackBishops |= setBitboard(m.to);
         pos.BlackBishops ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[B_BISHOP][m.from];
+        currentHashKey ^= zkey.pieceKeys[B_BISHOP][m.to];
         if (getBit(pos.WhiteoccupiedSquares, m.from)) {
           if (getBit(pos.WhitePawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -705,6 +731,8 @@ void makemove(Position &pos, Move m) {
           getBit(get_rook_attacks(m.from, pos.occupiedSquares), m.to)) {
         pos.BlackRooks |= setBitboard(m.to);
         pos.BlackRooks ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[B_ROOK][m.from];
+        currentHashKey ^= zkey.pieceKeys[B_ROOK][m.to];
         if (getBit(pos.WhiteoccupiedSquares, m.from)) {
           if (getBit(pos.WhitePawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -741,6 +769,8 @@ void makemove(Position &pos, Move m) {
       if (getBit(pos.BlackKing, m.from) && getBit(GetKingMoves(pos), m.to)) {
         pos.BlackKing |= setBitboard(m.to);
         pos.BlackKing ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[B_KING][m.from];
+        currentHashKey ^= zkey.pieceKeys[B_KING][m.to];
         if (getBit(pos.WhiteoccupiedSquares, m.from)) {
           if (getBit(pos.WhitePawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -778,6 +808,8 @@ void makemove(Position &pos, Move m) {
           getBit(GetQueenAttacks(pos, m.from), m.to)) {
         pos.BlackQueen |= setBitboard(m.to);
         pos.BlackQueen ^= setBitboard(m.from);
+        currentHashKey ^= zkey.pieceKeys[B_QUEEN][m.from];
+        currentHashKey ^= zkey.pieceKeys[B_QUEEN][m.to];
         if (getBit(pos.WhiteoccupiedSquares, m.from)) {
           if (getBit(pos.WhitePawns, m.from) &&
               getBit(GetPawnMoves(pos, m.from), m.to)) {
@@ -811,6 +843,7 @@ void makemove(Position &pos, Move m) {
           }
         }
       }
+
     } else {
       return;
     }

@@ -8,3 +8,4 @@ struct ZobristKeys {
   void initKeys();
 };
 uint64_t generate_random_key();
+uint64_t calculate_initial_hash();
