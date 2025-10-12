@@ -60,19 +60,21 @@ void testMoveGeneration() {
     printBoard(whiteKingMoves);
     std::cout << "\n";
 }
-void testMove(){
+void testMove(std::string fen ){
   Position board;
-  parseFEN(board,"8/8/8/8/8/8/7P w KQkq - 0 1");
+  Move m = {10,18};
+  parseFEN(board,fen);
   printBoard(board.WhitePawns);
-  Move m;
-  m.from = 8;
-  m.to = 16;
   makemove(board, m);
   printBoard(board.WhitePawns);
 }
 int main() {
     initKingAttacks();
-    testMove();
+    std::string fen;
+    Move m;
+    getline(std::cin,fen);
+    testMove(fen);
+
 //    testMoveGeneration();
     return 0;
 }
