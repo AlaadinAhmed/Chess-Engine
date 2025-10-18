@@ -1,79 +1,77 @@
+# OctoKnight
 
-**OctoKnight** is a custom-built chess engine designed to think tactically, play aggressively, and learn from every position. Named after the knight’s eight possible moves, this engine blends classic chess logic with modern programming principles.
+<p align="center">
+  <img src="https://i.imgur.com/gC4gA6c.png" alt="OctoKnight Logo" width="200"/>
+</p>
+
+<p align="center">
+  A UCI-compliant chess engine written in C++.
+</p>
 
 ---
+
+OctoKnight is a passion project of mine, a chess engine built from the ground up. The name comes from the knight's eight possible moves, a symbol of the engine's tactical and aggressive playstyle. I'm constantly working on it, trying to make it smarter and stronger with every commit.
 
 ## Features
 
-- ♟️ Alpha-beta pruning with iterative deepening
-- 🧠 Static evaluation function with material and positional heuristics
-- ⚔️ Tactical pattern recognition (forks, pins, skewers, etc.)
-- 🕹️ UCI-compatible interface for use with GUIs like Arena or CuteChess
-- 📈 Search depth control and move history
-- 🧪 Opening book (WIP)
+*   **UCI Protocol:** Fully compliant with the Universal Chess Interface, so you can use it with your favorite chess GUI.
+*   **Bitboard Representation:** A fast and efficient way to represent the chessboard.
+*   **Zobrist Hashing:** For quick and reliable transposition table lookups.
+*   **Transposition Table:** To store and retrieve previously calculated positions.
+*   **Alpha-Beta Search:** With iterative deepening to find the best move.
+*   **Piece-Square Tables:** To evaluate the positional value of each piece.
 
----
+## Building
 
-## Build & Run
-
-### Requirements
-- C++17 or later (or your engine’s language)
-- CMake (optional but recommended)
-- Git
-- Optional: GUI (like [Arena](http://www.playwitharena.de/) or [CuteChess](https://github.com/cutechess/cutechess))
-
-### Clone & Build
+I've made it easy to build OctoKnight. You'll need a C++17 compiler and CMake.
 
 ```bash
 git clone https://github.com/AlaadinAhmed/octoknight.git
 cd octoknight
-make          # or use cmake .
+mkdir build
+cd build
+cmake ..
+make
 ```
 
-## To Do
-### Engine Architecture
-#### [x]Fen Parsing 
-A FEN (Forsyth–Edwards Notation) is ==a standard text-based method for describing a single position on a chessboard, containing all the necessary information to restart a game from that point==.
+This will create the `OctoKnight` executable in the `build` directory.
 
-A FEN string consists of six parts, separated by spaces: 
+## Running
 
-1) Piece Placement: Describes the pieces on the board, starting from rank 8 down to rank 1, with pieces represented by letters (uppercase for white, lowercase for black). 
-- A number indicates consecutive empty squares. 
+Once you've built the engine, you can run it from the command line:
 
-- Each rank is separated by a forward slash (/). 
+```bash
+./OctoKnight
+```
 
-- Example: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR represents the starting position. 
+The engine will then listen for UCI commands. I recommend using a GUI like [Arena](http://www.playwitharena.de/) or [CuteChess](https://github.com/cutechess/cutechess) to play against it.
 
-2) Active Color:
-w for white or b for black, indicating whose turn it is. 
-3) Castling Rights:
-A string of letters (K, Q, k, q) indicating which castling moves are still possible. 
+## Testing
 
-    K: White can castle kingside.
-    Q: White can castle queenside.
-    k: Black can castle kingside.
-    q: Black can castle queenside.
-    A hyphen (-) indicates no castling rights. 
+I've set up some basic tests to ensure everything is working as expected. To run them:
 
-4) En Passant Target Square:
-The square where an en passant capture can occur, or - if none is possible. 
-5) Halfmove Clock:
-The number of halfmoves (plies) made since the last pawn move or capture, used for the 50-move rule. 
-6) Fullmove Number:
-The total number of full moves in the game, starting at 1 and incrementing after each of Black's moves. 
+```bash
+make OctoKnight_test
+./OctoKnight_test
+```
 
-**Example FEN:**
-The FEN for the starting position of a chess game is: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`.
-#### UCI (Universal Chess Interface)
+## Documentation
 
+I'm using Doxygen to generate detailed documentation for the project. You can find the latest version in the `docs/html` directory. Just open `index.html` in your browser.
 
-#### [Half Done] Move Generation
-[x] Rooks.
-[x] Bishops.
-[x] Knights.
-[x] Kings.
-[x] Pawns.
-[] Queens.
+## Future Goals
 
-#### Checks and Checkmates Validation
+I have a lot of ideas for OctoKnight. Here's what I'm currently working on:
 
+*   **Opening Book:** To give the engine a solid start to the game.
+*   **More Advanced Evaluation:** Incorporating more sophisticated evaluation techniques.
+*   **Improved Search:** Implementing more advanced search algorithms like Principal Variation Search (PVS).
+*   **Endgame Tablebases:** To play the endgame perfectly.
+
+## Contributing
+
+I'm always open to feedback and contributions. If you have any ideas or suggestions, feel free to open an issue or submit a pull request.
+
+## License
+
+OctoKnight is released under the [MIT License](LICENSE).
