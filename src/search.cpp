@@ -7,7 +7,7 @@ UndoInfo history[256];
 #include "movegen.hpp"
 #include "tt.hpp"
 
-extern TranspositionTable tt;
+#include "globals.hpp"
 int quiescence(Position &pos, int alpha, int beta) {
     int stand_pat = evaluate(pos);
     if (stand_pat >= beta) {

@@ -5,7 +5,7 @@
 #include "position.hpp"
 #include "search.hpp"
 #include <cstdint>
-extern uint64_t currentHashKey;
+#include "globals.hpp"
 extern UndoInfo history[];
 extern ZobristKeys zkey;
 

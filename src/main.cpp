@@ -14,8 +14,7 @@
 #include <thread>
 #include <vector>
 
-uint64_t currentHashKey;
-TranspositionTable tt(64);
+#include "globals.hpp"
 
 void uci_loop() {
     Position board;

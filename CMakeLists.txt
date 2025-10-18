@@ -7,6 +7,7 @@ SET(CMAKE_BUILD_TYPE Release)
 file(GLOB OCTOKNIGHT_SRC
      "src/*.cpp"
 )
+list(REMOVE_ITEM OCTOKNIGHT_SRC "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
 add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})
 

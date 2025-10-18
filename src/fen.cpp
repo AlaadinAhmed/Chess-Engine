@@ -3,7 +3,7 @@
 #include "position.hpp"
 #include "print.hpp"
 #include "fen.hpp"
-void parseFEN(Position &pos, std::string fen = defaultFEN){
+void parseFEN(Position &pos, std::string fen){
     int rank = 0;
     int file = 8;
     for (int i = 0; i < fen.length(); i++){
