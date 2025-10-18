@@ -1,32 +1,18 @@
 #include "position.hpp"
-#include "bitboard.hpp"
+
 Pieces get_piece_at(Position pos, int sq) {
-  if (getBit(pos.WhitePawns, sq)) {
-    return W_PAWN;
-  } else if (getBit(pos.WhiteBishops, sq)) {
-    return W_BISHOP;
-  } else if (getBit(pos.WhiteKnights, sq)) {
-    return W_KNIGHT;
-  } else if (getBit(pos.WhiteRooks, sq)) {
-    return W_ROOK;
-  } else if (getBit(pos.WhiteKing, sq)) {
-    return W_KING;
-  } else if (getBit(pos.WhiteQueen, sq)) {
-    return W_QUEEN;
-  }
-  if (getBit(pos.BlackPawns, sq)) {
-    return B_PAWN;
-  } else if (getBit(pos.BlackBishops, sq)) {
-    return B_BISHOP;
-  } else if (getBit(pos.BlackKnights, sq)) {
-    return B_KNIGHT;
-  } else if (getBit(pos.BlackRooks, sq)) {
-    return B_ROOK;
-  } else if (getBit(pos.BlackKing, sq)) {
-    return B_KING;
-  } else if (getBit(pos.BlackQueen, sq)) {
-    return B_QUEEN;
-  } else {
+    uint64_t bb = 1ULL << sq;
+    if (pos.WhitePawns & bb) return W_PAWN;
+    if (pos.WhiteKnights & bb) return W_KNIGHT;
+    if (pos.WhiteBishops & bb) return W_BISHOP;
+    if (pos.WhiteRooks & bb) return W_ROOK;
+    if (pos.WhiteQueen & bb) return W_QUEEN;
+    if (pos.WhiteKing & bb) return W_KING;
+    if (pos.BlackPawns & bb) return B_PAWN;
+    if (pos.BlackKnights & bb) return B_KNIGHT;
+    if (pos.BlackBishops & bb) return B_BISHOP;
+    if (pos.BlackRooks & bb) return B_ROOK;
+    if (pos.BlackQueen & bb) return B_QUEEN;
+    if (pos.BlackKing & bb) return B_KING;
     return NO_PIECE;
-  }
 }

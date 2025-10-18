@@ -1,8 +1,6 @@
 #pragma once
-#include <cstdint>
-#include "magics.hpp"
-// lookup bishop attacks 
-uint64_t get_bishop_attacks(int square, uint64_t occupancy);
+#include "position.hpp"
 
-// lookup rook attacks 
+void init_magics();
 uint64_t get_rook_attacks(int square, uint64_t occupancy);
+uint64_t get_bishop_attacks(int square, uint64_t occupancy);

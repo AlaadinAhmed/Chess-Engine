@@ -5,6 +5,8 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 SET(CMAKE_BUILD_TYPE Release)
 file(GLOB OCTOKNIGHT_SRC
      "src/*.cpp"
+     "src/eval.cpp"
+     "src/utils.cpp"
 )
 # Check if we are in Debug or Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")

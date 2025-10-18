@@ -12,3 +12,5 @@ uint64_t GetKnightMoves (Position pos);
 uint64_t GetKnightAttacks (Position pos, int square);
 uint64_t GetQueenAttacks(Position pos, int square);
 void makemove (Position& pos, Move m);
+void generate_moves(Position &pos, MoveList &move_list);
+void generate_captures(Position &pos, MoveList &move_list);

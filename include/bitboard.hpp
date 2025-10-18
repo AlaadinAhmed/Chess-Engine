@@ -99,10 +99,7 @@ const uint64_t knightAttacks[64] = {
 extern uint64_t kingAttacks[64];
 
 
-struct  Move{
-    uint8_t from;
-    uint8_t to;
-};
+#include "position.hpp"
 
 bool getBit(uint64_t bitboard, int square);
 void setBit(uint64_t &bitboard, int square);

@@ -3,7 +3,9 @@
 #include <chrono>
 #include <cstdint>
 #include <random>
+
 ZobristKeys zkey;
+
 void ZobristKeys::initKeys() {
   for (int piece = 0; piece < 12; piece++) {
     for (int square; square < 64; square++) {
@@ -21,7 +23,7 @@ void ZobristKeys::initKeys() {
 std::mt19937_64 rngenerator(
     std::chrono::high_resolution_clock::now().time_since_epoch().count());
 uint64_t generate_random_key() { return rngenerator(); }
-uint64_t calculate_initial_hash(Position pos) {
+uint64_t calculate_initial_hash(Position &pos) {
   uint64_t hash = 0;
   for (int sq = 0; sq < 64; sq++) {
     Pieces piece = get_piece_at(pos, sq);

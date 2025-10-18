@@ -1,82 +1,99 @@
 #include "bitboard.hpp"
 #include "fen.hpp"
+#include "hash.hpp"
+#include "magics.hpp"
 #include "movegen.hpp"
 #include "position.hpp"
 #include "print.hpp"
+#include "search.hpp"
+#include "tt.hpp"
+#include "utils.hpp"
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <thread>
+#include <vector>
+
 uint64_t currentHashKey;
-void testMoveGeneration() {
-  Position board;
-  // // Test starting position
-  parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+TranspositionTable tt(64);
 
-  std::cout << "Testing from starting position:\n\n";
+void uci_loop() {
+    Position board;
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        std::vector<std::string> tokens;
+        std::string current_token;
+        for (char c : line) {
+            if (c == ' ') {
+                tokens.push_back(current_token);
+                current_token = "";
+            } else {
+                current_token += c;
+            }
+        }
+        tokens.push_back(current_token);
 
-  // Test pawn moves
-  std::cout << "White pawn moves from e2:\n";
-  uint64_t whitePawnMoves = GetPawnMoves(board, 12); // e2 square
-  printBoard(whitePawnMoves);
-  std::cout << "Expected moves: e3 and e4\n\n";
-
-  std::cout << "Black pawn moves from e7:\n";
-  board.whiteToMove = false;
-  uint64_t blackPawnMoves = GetPawnMoves(board, 52); // e7 square
-  printBoard(blackPawnMoves);
-  std::cout << "Expected moves: e6 and e5\n\n";
-
-  // Test king moves
-  board.whiteToMove = true;
-  std::cout << "White king moves (should be empty in starting position):\n";
-  uint64_t whiteKingMoves = GetKingMoves(board);
-  printBoard(whiteKingMoves);
-  std::cout << "\n";
-
-  // Test knight moves
-  std::cout << "Knight attacks from b1:\n";
-  uint64_t knightAttacks = GetKnightAttacks(board, 6);
-  printBoard(knightAttacks);
-  std::cout << "\n";
-
-  // Test attacked squares
-  std::cout << "Squares attacked by black:\n";
-  board.whiteToMove = false;
-  uint64_t attackedSquares = peekAttackedSquares(board);
-  printBoard(attackedSquares);
-  std::cout << "\n";
-
-  // Test middle game position
-  board.whiteToMove = true;
-  board.reset();
-  std::cout << "Testing from middle game position:\n";
-  parseFEN(
-      board,
-      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
-  printBoard(board.occupiedSquares);
-  std::cout << "\n";
-
-  board.whiteToMove = true;
-  std::cout << "White king moves in middle game:\n";
-  whiteKingMoves = GetKingMoves(board);
-  printBoard(whiteKingMoves);
-  std::cout << "\n";
+        if (tokens[0] == "uci") {
+            std::cout << "id name OctoKnight" << std::endl;
+            std::cout << "id author Aladdin" << std::endl;
+            std::cout << "uciok" << std::endl;
+        } else if (tokens[0] == "isready") {
+            std::cout << "readyok" << std::endl;
+        } else if (tokens[0] == "ucinewgame") {
+            board.reset();
+            tt.clear();
+        } else if (tokens[0] == "position") {
+            if (tokens[1] == "startpos") {
+                parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+                currentHashKey = calculate_initial_hash(board);
+                if (tokens.size() > 2 && tokens[2] == "moves") {
+                    for (int i = 3; i < tokens.size(); i++) {
+                        Move m = uci_to_move(tokens[i]);
+                        makemove(board, m);
+                    }
+                }
+            } else if (tokens[1] == "fen") {
+                std::string fen = "";
+                int i = 2;
+                while (i < tokens.size() && tokens[i] != "moves") {
+                    fen += tokens[i] + " ";
+                    i++;
+                }
+                parseFEN(board, fen);
+                currentHashKey = calculate_initial_hash(board);
+                if (i < tokens.size() && tokens[i] == "moves") {
+                    for (int j = i + 1; j < tokens.size(); j++) {
+                        Move m = uci_to_move(tokens[j]);
+                        makemove(board, m);
+                    }
+                }
+            }
+        } else if (tokens[0] == "go") {
+            searching = true;
+            std::thread search_thread([&]() {
+                Move best_move;
+                int score = search(board, 5, -100000, 100000, best_move);
+                if (searching) {
+                    std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
+                }
+                searching = false;
+            });
+            search_thread.detach();
+        } else if (tokens[0] == "stop") {
+            searching = false;
+        } else if (tokens[0] == "quit") {
+            break;
+        }
+    }
 }
-void testMove(std::string fen) {
-  Position board;
-  Move m = {10, 18};
-  parseFEN(board, fen);
-  printBoard(board.WhitePawns);
-  makemove(board, m);
-  printBoard(board.WhitePawns);
-}
+
 int main() {
-  initKingAttacks();
-  std::string fen;
-  Move m;
-  getline(std::cin, fen);
-  testMove(fen);
+    zkey.initKeys();
+    init_magics();
+    initKingAttacks();
+    tt.clear();
 
-  //    testMoveGeneration();
-  return 0;
+    uci_loop();
+
+    return 0;
 }

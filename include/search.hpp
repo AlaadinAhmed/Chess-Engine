@@ -10,9 +10,7 @@ struct UndoInfo {
   int oldHalfMove;
   int side;
 };
-struct TTEntry {
-  uint64_t key;
-  int score;
-  int depth;
-  Move bestmove;
-};
+
+extern bool searching;
+
+int search(Position &pos, int depth, int alpha, int beta, Move &best_move);

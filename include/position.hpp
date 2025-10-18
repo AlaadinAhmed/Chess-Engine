@@ -15,6 +15,16 @@ enum Pieces {
   B_KING,
   NO_PIECE
 };
+struct Move {
+    int from;
+    int to;
+};
+
+struct MoveList {
+    Move moves[256];
+    int count = 0;
+};
+
 struct Position {
   uint64_t BlackKnights = 0;
   uint64_t BlackBishops = 0;
@@ -41,6 +51,8 @@ struct Position {
   uint64_t occupiedSquares = 0;
   uint64_t emptySquares = 0;
 
+  uint64_t zobrist_key = 0;
+
   void reset() {
     BlackKnights = 0;
     BlackBishops = 0;
@@ -64,6 +76,8 @@ struct Position {
     WhiteoccupiedSquares = 0;
     occupiedSquares = 0;
     emptySquares = 0;
+
+    zobrist_key = 0;
   }
 };
 Pieces get_piece_at(Position pos, int sq);
