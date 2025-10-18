@@ -44,7 +44,7 @@ Once you've built the engine, you can run it from the command line:
 ./OctoKnight
 ```
 
-The engine will then listen for UCI commands. I recommend using a GUI like [Arena](http://www.playwitharena.de/) or [CuteChess](https://github.com/cutechess/cutechess) to play against it.
+The engine will then listen for UCI commands. I recommend using a GUI like [Arena](http://www.playwitharena.de/) or [CuteChess](https://github.com/cutechess/cutechess) to play against it. For more detailed instructions on how to use the engine with a GUI, see [USAGE.md](USAGE.md).
 
 ## Testing
 
@@ -58,6 +58,14 @@ make OctoKnight_test
 ## Documentation
 
 I'm using Doxygen to generate detailed documentation for the project. You can find the latest version in the `docs/html` directory. Just open `index.html` in your browser.
+
+To generate the documentation yourself, you'll need to have Doxygen installed. Then, from the root of the project, run:
+
+```bash
+doxygen Doxyfile
+```
+
+For a detailed guide to the UCI commands that OctoKnight supports, see [MANUAL.md](MANUAL.md).
 
 ## Future Goals
 

@@ -95,7 +95,25 @@ void uci_loop() {
     }
 }
 
-int main() {
+void print_help() {
+    std::cout << "OctoKnight - A UCI-compliant chess engine." << std::endl;
+    std::cout << "Usage: ./OctoKnight [options]" << std::endl;
+    std::cout << std::endl;
+    std::cout << "Options:" << std::endl;
+    std::cout << "  --help, -h    Show this help message." << std::endl;
+    std::cout << std::endl;
+    std::cout << "For more information on how to use the engine, see MANUAL.md." << std::endl;
+}
+
+int main(int argc, char* argv[]) {
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--help" || arg == "-h") {
+            print_help();
+            return 0;
+        }
+    }
+
     zkey.initKeys();
     init_magics();
     initKingAttacks();
