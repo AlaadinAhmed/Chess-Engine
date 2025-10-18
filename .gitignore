@@ -2,3 +2,11 @@ build/
 .cache/
 docs/html/
 docs/latex/
+
+# Ignore generated files
+commands.txt
+engine_stderr.txt
+engine_stdout.txt
+
+.gemini/
+gha-creds-*.json

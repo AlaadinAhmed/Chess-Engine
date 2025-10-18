@@ -16,3 +16,4 @@ const std::string defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQ
  * @param fen The FEN string.
  */
 void parseFEN(Position &pos, std::string fen = defaultFEN);
+void positionToFEN(const Position &pos, char *fen_string);

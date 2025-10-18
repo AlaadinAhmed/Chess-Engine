@@ -7,6 +7,10 @@
 #include "position.hpp"
 #include <string>
 
+
+void log_debug(const std::string& message);
+
+// Other utility functions...
 /**
  * @brief Converts a UCI move string to a Move struct.
  *

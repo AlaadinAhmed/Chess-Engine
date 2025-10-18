@@ -1,5 +1,7 @@
 #include "bitboard.hpp"
+#include "eval.hpp"
 #include "fen.hpp"
+#include "globals.hpp"
 #include "hash.hpp"
 #include "magics.hpp"
 #include "movegen.hpp"
@@ -8,117 +10,90 @@
 #include "search.hpp"
 #include "tt.hpp"
 #include "utils.hpp"
-#include <cstdint>
 #include <iostream>
 #include <string>
-#include <thread>
 #include <vector>
+#include <sstream>
 
-#include "globals.hpp"
-
-void uci_loop() {
-    Position board;
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        std::vector<std::string> tokens;
-        std::string current_token;
-        for (char c : line) {
-            if (c == ' ') {
-                tokens.push_back(current_token);
-                current_token = "";
-            } else {
-                current_token += c;
-            }
-        }
-        tokens.push_back(current_token);
-
-        if (tokens[0] == "uci") {
-            std::cout << "id name OctoKnight" << std::endl;
-            std::cout << "id author Aladdin" << std::endl;
-            std::cout << "uciok" << std::endl;
-        } else if (tokens[0] == "isready") {
-            std::cout << "readyok" << std::endl;
-        } else if (tokens[0] == "ucinewgame") {
-            board.reset();
-            tt.clear();
-        } else if (tokens[0] == "position") {
-            if (tokens[1] == "startpos") {
-                parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-                currentHashKey = calculate_initial_hash(board);
-                if (tokens.size() > 2 && tokens[2] == "moves") {
-                    for (int i = 3; i < tokens.size(); i++) {
-                        Move m = uci_to_move(tokens[i]);
-                        makemove(board, m);
-                    }
-                }
-            } else if (tokens[1] == "fen") {
-                std::string fen = "";
-                int i = 2;
-                while (i < tokens.size() && tokens[i] != "moves") {
-                    fen += tokens[i] + " ";
-                    i++;
-                }
-                parseFEN(board, fen);
-                currentHashKey = calculate_initial_hash(board);
-                if (i < tokens.size() && tokens[i] == "moves") {
-                    for (int j = i + 1; j < tokens.size(); j++) {
-                        Move m = uci_to_move(tokens[j]);
-                        makemove(board, m);
-                    }
-                }
-            }
-        } else if (tokens[0] == "go") {
-            searching = true;
-            std::thread search_thread([&]() {
-                Move best_move;
-                for (int depth = 1; depth <= 10; depth++) {
-                    if (!searching) {
-                        break;
-                    }
-                    int score = search(board, depth, -100000, 100000, best_move);
-                    if (searching) {
-                        std::cout << "info depth " << depth << " score cp " << score << " pv " << move_to_uci(best_move) << std::endl;
-                    }
-                }
-                if (searching) {
-                    std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
-                }
-                searching = false;
-            });
-            search_thread.detach();
-        } else if (tokens[0] == "stop") {
-            searching = false;
-        } else if (tokens[0] == "quit") {
-            break;
-        }
-    }
-}
-
-void print_help() {
-    std::cout << "OctoKnight - A UCI-compliant chess engine." << std::endl;
-    std::cout << "Usage: ./OctoKnight [options]" << std::endl;
-    std::cout << std::endl;
-    std::cout << "Options:" << std::endl;
-    std::cout << "  --help, -h    Show this help message." << std::endl;
-    std::cout << std::endl;
-    std::cout << "For more information on how to use the engine, see MANUAL.md." << std::endl;
-}
-
-int main(int argc, char* argv[]) {
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        if (arg == "--help" || arg == "-h") {
-            print_help();
-            return 0;
-        }
-    }
-
-    zkey.initKeys();
+int main() {
     init_magics();
     initKingAttacks();
-    tt.clear();
 
-    uci_loop();
+    std::string line;
+    Position current_pos;
+    current_pos.setStartingPosition();
+
+    while (std::getline(std::cin, line)) {
+        std::stringstream ss(line);
+        std::string command;
+        ss >> command;
+
+        if (command == "uci") {
+            std::cout << "id name OctoKnight" << std::endl;
+            std::cout << "id author Aladdin" << std::endl;
+            std::cout << "option name Debug Log File type string default " << std::endl;
+            std::cout << "option name Debug type check default false" << std::endl;
+            std::cout << "uciok" << std::endl;
+        } else if (command == "isready") {
+            std::cout << "readyok" << std::endl;
+        } else if (command == "setoption") {
+            std::string name_str, value_str;
+            ss >> name_str; // "name"
+            ss >> name_str; // option name
+            ss >> value_str; // "value"
+            ss >> value_str; // option value
+
+            if (name_str == "Debug") {
+                if (value_str == "true") {
+                    debug_mode = true;
+                } else if (value_str == "false") {
+                    debug_mode = false;
+                }
+            }
+        } else if (command == "position") {
+            std::string arg;
+            ss >> arg;
+            if (arg == "startpos") {
+                current_pos.setStartingPosition();
+            } else if (arg == "fen") {
+                std::string fen_string;
+                while (ss >> arg && arg != "moves") {
+                    fen_string += arg + " ";
+                }
+                current_pos.setFen(fen_string);
+            }
+            if (arg == "moves") {
+                while (ss >> arg) {
+                    Move m = uci_to_move(arg);
+                    makemove(current_pos, m);
+                }
+            }
+        } else if (command == "go") {
+            searching = true;
+            int search_depth = 6; // Default search depth
+            long long move_time = -1; // Default no movetime limit
+
+            std::string token;
+            while (ss >> token) {
+                if (token == "depth") {
+                    ss >> search_depth;
+                } else if (token == "movetime") {
+                    ss >> move_time;
+                }
+                // Add other 'go' command parameters here as needed (e.g., nodes, infinite, etc.)
+            }
+
+            Move best_move;
+            // The search function will be modified to output info as it searches
+            int score = search(current_pos, search_depth, move_time, best_move);
+            searching = false;
+            std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
+        } else if (command == "quit") {
+            break;
+        } else {
+            log_debug("Unknown command: " + command);
+        }
+    }
 
     return 0;
 }

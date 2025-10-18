@@ -1,4 +1,6 @@
 #include "utils.hpp"
+#include <iostream>
+#include "globals.hpp"
 
 Move uci_to_move(std::string uci_move) {
     int from_file = uci_move[0] - 'a';
@@ -21,4 +23,10 @@ std::string move_to_uci(Move move) {
     uci_move += (char)('a' + to_file);
     uci_move += (char)('1' + to_rank);
     return uci_move;
+}
+
+void log_debug(const std::string& message) {
+    if (debug_mode) {
+        std::cout << "info string Debug: " << message << std::endl;
+    }
 }

@@ -8,7 +8,7 @@ ZobristKeys zkey;
 
 void ZobristKeys::initKeys() {
   for (int piece = 0; piece < 12; piece++) {
-    for (int square; square < 64; square++) {
+    for (int square = 0; square < 64; square++) {
       zkey.pieceKeys[piece][square] = generate_random_key();
     }
   }

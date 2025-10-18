@@ -1,6 +1,8 @@
 #include "position.hpp"
+#include "fen.hpp"
+#include "bitboard.hpp"
 
-Pieces get_piece_at(Position pos, int sq) {
+Pieces get_piece_at(const Position &pos, int sq) {
     uint64_t bb = 1ULL << sq;
     if (pos.WhitePawns & bb) return W_PAWN;
     if (pos.WhiteKnights & bb) return W_KNIGHT;
@@ -15,4 +17,13 @@ Pieces get_piece_at(Position pos, int sq) {
     if (pos.BlackQueen & bb) return B_QUEEN;
     if (pos.BlackKing & bb) return B_KING;
     return NO_PIECE;
+}
+
+void Position::setStartingPosition() {
+    reset();
+    setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+}
+
+void Position::setFen(const std::string& fen_string) {
+    parseFEN(*this, fen_string);
 }

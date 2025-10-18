@@ -7,6 +7,23 @@
 #include "position.hpp"
 
 /**
+ * @brief Calculates the current game phase (e.g., opening, middlegame, endgame).
+ *
+ * @param pos The current position.
+ * @return An integer representing the game phase.
+ */
+int calculateGamePhase(const Position &pos);
+
+/**
+ * @brief Counts the number of isolated pawns for a given color.
+ *
+ * @param pos The current position.
+ * @param color The color of the pawns (true for white, false for black).
+ * @return The number of isolated pawns.
+ */
+int countIsolatedPawns(const Position &pos, bool is_white);
+
+/**
  * @brief Evaluates a position.
  *
  * @param pos The position to evaluate.

@@ -5,6 +5,7 @@
 
 #pragma once
 #include <cstdint>
+#include <string>
 
 /**
  * @brief Enum for the pieces.
@@ -31,6 +32,7 @@ enum Pieces {
 struct Move {
     int from; /**< The starting square of the move. */
     int to;   /**< The ending square of the move. */
+    Pieces promotion = NO_PIECE; /**< The piece to promote to. */
 };
 
 /**
@@ -72,6 +74,9 @@ struct Position {
 
   uint64_t zobrist_key = 0; /**< The Zobrist key for the position. */
 
+  void setStartingPosition();
+  void setFen(const std::string& fen_string);
+
   /**
    * @brief Resets the position to the starting position.
    */
@@ -110,4 +115,4 @@ struct Position {
  * @param sq The square.
  * @return The piece at the given square.
  */
-Pieces get_piece_at(Position pos, int sq);
+Pieces get_piece_at(const Position &pos, int sq);
