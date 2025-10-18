@@ -1,6 +1,16 @@
-#pragma once
-#include <iostream>
-#include "position.hpp"
-std::string const defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+/**
+ * @file fen.hpp
+ * @brief Contains functions for parsing FEN strings.
+ */
 
-void parseFEN(Position &pos,std::string fen);
+#pragma once
+#include "position.hpp"
+#include <string>
+
+/**
+ * @brief Parses a FEN string and sets the position on the board.
+ *
+ * @param board The board to set the position on.
+ * @param fen The FEN string.
+ */
+void parseFEN(Position &board, std::string fen);

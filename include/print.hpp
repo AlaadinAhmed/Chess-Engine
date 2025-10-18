@@ -1,4 +1,17 @@
+/**
+ * @file print.hpp
+ * @brief Contains functions for printing bitboards.
+ */
+
 #pragma once
+#include <cstdint>
+#include <iostream>
+
+/**
+ * @brief Prints a bitboard to the console.
+ *
+ * @param pieces The bitboard to print.
+ */
 inline void printBoard(uint64_t pieces) {
     for (int i = 0; i < 64; i++) {
         // Print a piece if the current bit is set
@@ -44,6 +57,12 @@ inline void printBoard(uint64_t pieces) {
     }
     std::cout << "\n    a b c d e f g h \n";
 }
+
+/**
+ * @brief Prints an array of bitboards to the console.
+ *
+ * @param pieces The array of bitboards to print.
+ */
 inline void printSequentialBoard(const uint64_t pieces[]) {
     for (int j = 0; j < 64; j++){
         std::string square;

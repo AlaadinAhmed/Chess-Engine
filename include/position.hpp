@@ -1,5 +1,14 @@
+/**
+ * @file position.hpp
+ * @brief Contains the Position struct and related enums and functions.
+ */
+
 #pragma once
 #include <cstdint>
+
+/**
+ * @brief Enum for the pieces.
+ */
 enum Pieces {
   W_KNIGHT,
   W_BISHOP,
@@ -15,44 +24,57 @@ enum Pieces {
   B_KING,
   NO_PIECE
 };
+
+/**
+ * @brief Struct for a move.
+ */
 struct Move {
-    int from;
-    int to;
+    int from; /**< The starting square of the move. */
+    int to;   /**< The ending square of the move. */
 };
 
+/**
+ * @brief Struct for a list of moves.
+ */
 struct MoveList {
-    Move moves[256];
-    int count = 0;
+    Move moves[256]; /**< The list of moves. */
+    int count = 0;   /**< The number of moves in the list. */
 };
 
+/**
+ * @brief Struct for the position on the board.
+ */
 struct Position {
-  uint64_t BlackKnights = 0;
-  uint64_t BlackBishops = 0;
-  uint64_t BlackRooks = 0;
-  uint64_t BlackQueen = 0;
-  uint64_t BlackKing = 0;
-  uint64_t BlackPawns = 0;
+  uint64_t BlackKnights = 0; /**< Bitboard for the black knights. */
+  uint64_t BlackBishops = 0; /**< Bitboard for the black bishops. */
+  uint64_t BlackRooks = 0;   /**< Bitboard for the black rooks. */
+  uint64_t BlackQueen = 0;   /**< Bitboard for the black queen. */
+  uint64_t BlackKing = 0;    /**< Bitboard for the black king. */
+  uint64_t BlackPawns = 0;   /**< Bitboard for the black pawns. */
 
-  uint64_t WhiteKnights = 0;
-  uint64_t WhiteBishops = 0;
-  uint64_t WhiteRooks = 0;
-  uint64_t WhiteQueen = 0;
-  uint64_t WhiteKing = 0;
-  uint64_t WhitePawns = 0;
+  uint64_t WhiteKnights = 0; /**< Bitboard for the white knights. */
+  uint64_t WhiteBishops = 0; /**< Bitboard for the white bishops. */
+  uint64_t WhiteRooks = 0;   /**< Bitboard for the white rooks. */
+  uint64_t WhiteQueen = 0;   /**< Bitboard for the white queen. */
+  uint64_t WhiteKing = 0;    /**< Bitboard for the white king. */
+  uint64_t WhitePawns = 0;   /**< Bitboard for the white pawns. */
 
-  bool whiteToMove;
-  uint64_t enPassant = 0;
-  int move50rule = 0;
-  int move = 0;
-  uint8_t castelingRights = 0;
+  bool whiteToMove;        /**< True if it's white's turn to move. */
+  uint64_t enPassant = 0;    /**< The en passant square. */
+  int move50rule = 0;      /**< The 50-move rule counter. */
+  int move = 0;            /**< The current move number. */
+  uint8_t castelingRights = 0; /**< The castling rights. */
 
-  uint64_t BlackoccupiedSquares = 0;
-  uint64_t WhiteoccupiedSquares = 0;
-  uint64_t occupiedSquares = 0;
-  uint64_t emptySquares = 0;
+  uint64_t BlackoccupiedSquares = 0; /**< Bitboard for all black pieces. */
+  uint64_t WhiteoccupiedSquares = 0; /**< Bitboard for all white pieces. */
+  uint64_t occupiedSquares = 0;    /**< Bitboard for all occupied squares. */
+  uint64_t emptySquares = 0;       /**< Bitboard for all empty squares. */
 
-  uint64_t zobrist_key = 0;
+  uint64_t zobrist_key = 0; /**< The Zobrist key for the position. */
 
+  /**
+   * @brief Resets the position to the starting position.
+   */
   void reset() {
     BlackKnights = 0;
     BlackBishops = 0;
@@ -80,4 +102,12 @@ struct Position {
     zobrist_key = 0;
   }
 };
+
+/**
+ * @brief Gets the piece at a given square.
+ *
+ * @param pos The position.
+ * @param sq The square.
+ * @return The piece at the given square.
+ */
 Pieces get_piece_at(Position pos, int sq);

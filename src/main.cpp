@@ -72,7 +72,15 @@ void uci_loop() {
             searching = true;
             std::thread search_thread([&]() {
                 Move best_move;
-                int score = search(board, 5, -100000, 100000, best_move);
+                for (int depth = 1; depth <= 10; depth++) {
+                    if (!searching) {
+                        break;
+                    }
+                    int score = search(board, depth, -100000, 100000, best_move);
+                    if (searching) {
+                        std::cout << "info depth " << depth << " score cp " << score << " pv " << move_to_uci(best_move) << std::endl;
+                    }
+                }
                 if (searching) {
                     std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
                 }

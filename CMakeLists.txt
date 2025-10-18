@@ -3,17 +3,28 @@ project(OctoKnight)
 set(CMAKE_CXX_STANDARD 17)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 SET(CMAKE_BUILD_TYPE Release)
+
 file(GLOB OCTOKNIGHT_SRC
      "src/*.cpp"
-     "src/eval.cpp"
-     "src/utils.cpp"
 )
-# Check if we are in Debug or Release mode
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")  # Debug flags
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")  # Release flags
-endif()
 
-# Other CMake settings
-add_executable(OctoKnight ${OCTOKNIGHT_SRC})
+add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})
+
+add_executable(OctoKnight src/main.cpp)
+target_link_libraries(OctoKnight OctoKnightLib)
+
+enable_testing()
+
+add_subdirectory(extern/googletest)
+
+file(GLOB TEST_SRC
+     "tests/*.cpp"
+)
+
+add_executable(OctoKnight_test ${TEST_SRC})
+
+target_link_libraries(
+    OctoKnight_test
+    gtest_main
+    OctoKnightLib
+)
