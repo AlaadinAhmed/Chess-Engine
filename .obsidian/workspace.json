@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "8bb09ef1d0fc875a",
+        "id": "b7c9493223d58a12",
         "type": "tabs",
         "children": [
           {
-            "id": "3dfba461cd122219",
+            "id": "fd9615045b941e75",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -169,8 +169,9 @@
       "bases:Create new base": false
     }
   },
-  "active": "3dfba461cd122219",
+  "active": "fd9615045b941e75",
   "lastOpenFiles": [
+    "BUILD_GUIDE.md",
     "README.md",
     "README.md~",
     "TODO.md"

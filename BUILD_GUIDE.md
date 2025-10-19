@@ -1,4 +1,4 @@
-# How to Build a C++ Chess Engine from Scratch (Expanded Edition)
+# How to Build a C++ Chess Engine from Scratch (Ultimate Edition)
 
 This guide provides a detailed, step-by-step explanation of the algorithms and data structures needed to build a functional chess engine in C++. This expanded version includes more advanced topics crucial for engine strength.
 
@@ -17,6 +17,15 @@ The `Position` struct holds the entire game state. It contains 12 `uint64_t` bit
 #pragma once
 #include <cstdint>
 
+// Enum for piece types
+enum Piece {
+    WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
+    BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING
+};
+
+// Enum for castling rights
+enum Castling { WK = 1, WQ = 2, BK = 4, BQ = 8 };
+
 struct Position {
     // Piece Bitboards
     uint64_t piece_bitboards[12]; // e.g., white_pawns=0, white_knights=1...
@@ -28,23 +37,33 @@ struct Position {
 
     // Game State
     bool is_white_to_move;
-    uint8_t castling_rights; // Bitmask: 1=WK, 2=WQ, 4=BK, 8=BQ
+    uint8_t castling_rights; // Bitmask using Castling enum
     int en_passant_square;   // Square index (0-63) or -1 if none
     int fifty_move_counter;
     uint64_t zobrist_key; // For transposition table
 };
 ```
 
-### 1.2 Bitboard Manipulation
-A piece is added to a bitboard using a bitwise OR (`|=`) and removed using a bitwise AND with a NOT (`&= ~`).
+### 1.2 Zobrist Hashing
+Zobrist hashing provides a way to compute a unique(ish) 64-bit key for each position. This is essential for the Transposition Table. The key is updated incrementally.
+
+**Setup**:
+1. At startup, create a table of pseudo-random 64-bit numbers:
+   - One for each piece on each square (12 * 64)
+   - One for the side to move (black)
+   - One for each possible castling right (4)
+   - One for each possible en-passant file (8)
+
+**Updating the Key**:
+When a move is made, the Zobrist key is updated with XOR operations. For example, moving a white pawn from e2 to e4:
 
 ```cpp
-// To add a white pawn to square e4 (index 28)
-position.piece_bitboards[WHITE_PAWN] |= (1ULL << 28);
-
-// To remove it
-position.piece_bitboards[WHITE_PAWN] &= ~(1ULL << 28);
+key ^= random_table[WHITE_PAWN][E2]; // remove pawn from e2
+key ^= random_table[WHITE_PAWN][E4]; // add pawn to e4
+key ^= random_table[BLACK_TO_MOVE];  // switch side to move
+// ... and so on for castling/en-passant changes
 ```
+This is much faster than re-computing the hash from scratch.
 
 ---
 
@@ -52,35 +71,20 @@ position.piece_bitboards[WHITE_PAWN] &= ~(1ULL << 28);
 
 Move generation finds all legal moves. The process is to generate **pseudo-legal moves** and then validate their legality.
 
-### 2.1 The Move Generation Algorithm
+### 2.1 Pawn Move Generation
+Pawns are the most complex piece to generate moves for.
+- **Single Push**: Shift the pawn bitboard forward one rank.
+- **Double Push**: For pawns on the 2nd/7th rank, shift them forward two ranks.
+- **Captures**: Shift the pawn bitboard diagonally forward.
+- **En Passant**: A special capture that can only happen immediately after a pawn makes a two-step advance.
+- **Promotions**: If a pawn reaches the 8th/1st rank, it can be promoted to a Queen, Rook, Bishop, or Knight.
 
-1.  Create an empty list of moves.
-2.  Get a bitboard of all pieces for the current player.
-3.  Loop through each piece on that bitboard. A fast method is to find and clear the least significant bit (LSB) in a loop:
-    ```cpp
-    uint64_t pieces = ...;
-    while (pieces) {
-        int square = __builtin_ctzll(pieces); // Get index of LSB
-        // ... generate moves for the piece on this square ...
-        pieces &= pieces - 1; // Clear the LSB to move to the next piece
-    }
-    ```
-4.  Inside the loop, a `switch` on the piece type calls a specific move generation function.
-5.  **Legality Check**: For each generated move, make the move on a temporary board and verify the king is not left in check. If it is safe, the move is legal.
-
-### 2.2 Generating Sliding Piece Moves (Bishops, Rooks, Queens)
-
-Generating moves for sliding pieces is complex because they are blocked by other pieces. A highly effective method is using **Magic Bitboards**.
-
-**The Magic Bitboard Algorithm:**
-1.  **Pre-calculation**: At startup, you generate a set of "magic" numbers and attack tables.
-2.  **In Move Generation**: To find the moves for a rook on square `s`:
-    a. Get a bitboard of all occupied squares: `blockers = pos.all_occupied`.
-    b. Isolate only the blockers on the rook's rank and file.
-    c. Use the magic number to transform this blocker set into an index for your pre-calculated attack table.
-    d. Look up the attack set from the table using this index.
-
-This seems complex, but it reduces move generation for sliding pieces to a few bitwise operations and a table lookup, which is extremely fast.
+### 2.2 Legality Checking
+After generating a pseudo-legal move, you must check if it's legal. The simplest way is:
+1. Make the move on a temporary copy of the board.
+2. Check if the king of the side that just moved is now in check. An `is_attacked()` function is useful here.
+3. If the king is in check, the move was illegal.
+4. Unmake the move.
 
 ---
 
@@ -88,53 +92,14 @@ This seems complex, but it reduces move generation for sliding pieces to a few b
 
 The search function is the engine's core intelligence. A simple `alpha_beta` call is not enough for a strong engine. A proper search requires a framework of several components.
 
-### 3.1 Iterative Deepening
+### 3.1 Principal Variation Search (PVS)
+PVS is an optimization to alpha-beta that assumes the first move is the best. It performs a full search on the first move, but subsequent moves are searched with a "null window" to prove they are worse. If a move turns out to be better, it is re-searched with a full window.
 
-Instead of searching for a fixed depth (e.g., 5 moves), we search in a loop. This is called Iterative Deepening.
+### 3.2 Null Move Pruning
+This is an aggressive pruning technique. The idea is to give the opponent an extra move (a "null move") and see if our position is still so good that it beats beta. If it does, we can prune the search, assuming the position is strong enough to withstand any reply.
 
-```cpp
-void search(Position& pos, int max_time) {
-    for (int depth = 1; depth <= MAX_SEARCH_DEPTH; ++depth) {
-        // Call alpha_beta with the current depth
-        best_move = alpha_beta(pos, depth, ...);
-        // if time is up, break the loop
-    }
-}
-```
-**Benefits**: 
-- **Time Management**: We can stop the search at any time (e.g., after 2 seconds) and still have a best move from the previously completed depth.
-- **Move Ordering**: The best move found at `depth=3` is an excellent candidate to search first at `depth=4`.
-
-### 3.2 Move Ordering
-
-The performance of Alpha-Beta search depends *exponentially* on the order in which moves are searched. If you always search the best move first, pruning is maximized. A good move ordering scheme is critical.
-
-**The Algorithm**: Before searching the moves at a node, sort them in the following order of priority:
-
-1.  **PV-Move**: The Principal Variation move (the best move found from the previous Iterative Deepening search).
-2.  **Transposition Table Move**: If the position is in our Transposition Table, the move stored there is often very good.
-3.  **Promotions and Good Captures**: Queen promotions and captures where a low-value piece takes a high-value piece (e.g., Pawn x Queen). You can use a simple function called **Static Exchange Evaluation (SEE)** to estimate if a capture is good.
-4.  **Killer Moves**: These are quiet (non-capture) moves that have caused a beta-cutoff at the same ply in other branches of the search. We store two "killer moves" per ply.
-5.  **History Heuristic**: All other quiet moves are sorted based on a "history score", which is incremented whenever a move is found to be good elsewhere in the search.
-
-### 3.3 Transposition Table
-
-A Transposition Table (TT) is a large hash table that stores the results of previously searched positions. This avoids re-searching the same position over and over.
-
-**The Algorithm**:
-1.  Before searching a position, calculate its **Zobrist Key**.
-2.  Probe the TT with this key. An entry in the table typically contains:
-    - The Zobrist key (to verify it's not a hash collision).
-    - The search depth the position was evaluated at.
-    - The score.
-    - The best move found.
-    - A flag (Exact, Lower Bound, or Upper Bound).
-3.  **Using the Entry**: If the stored depth is greater than or equal to our current search depth, we can often use the stored score directly and prune the entire search of this node.
-4.  **Storing an Entry**: After a search of a node is complete, store the result (score, depth, best move) in the TT.
-
-### 3.4 Quiescence Search
-
-When the main search reaches its depth limit (a leaf node), it calls `quiescence()`. This is a special search that only considers captures and promotions until a "quiet" position is reached. This avoids the **horizon effect**, where an engine might miss a simple capture that occurs just beyond its search depth.
+### 3.3 Late Move Reductions (LMR)
+This technique reduces the search depth for moves that are ordered later in the move list. The idea is that moves ordered later are less likely to be good, so we can spend less time on them. If a move that was reduced proves to be good, it can be re-searched at full depth.
 
 ---
 
@@ -142,19 +107,27 @@ When the main search reaches its depth limit (a leaf node), it calls `quiescence
 
 A simple material and PST evaluation is a good start. A stronger engine needs more nuance.
 
-### 4.1 Tapered Evaluation
+### 4.1 Piece-Square Tables (PSTs)
+PSTs are tables that assign a value to each piece on each square. For example, a knight on the rim is bad, but a knight in the center is good. Here is an example of a PST for white pawns:
 
-The importance of evaluation terms changes as the game progresses. King safety is vital in the middlegame, but an active king is an asset in the endgame. We can blend scores using a **Game Phase** value.
+```cpp
+const int pawn_pst_mg[64] = {
+    0,  0,  0,  0,  0,  0,  0,  0,
+   50, 50, 50, 50, 50, 50, 50, 50,
+   10, 10, 20, 30, 30, 20, 10, 10,
+    5,  5, 10, 25, 25, 10,  5,  5,
+    0,  0,  0, 20, 20,  0,  0,  0,
+    5, -5,-10,  0,  0,-10, -5,  5,
+    5, 10, 10,-20,-20, 10, 10,  5,
+    0,  0,  0,  0,  0,  0,  0,  0
+};
+```
 
-1.  Calculate a `phase` value (e.g., from 0 for endgame to 24 for opening), based on the non-pawn material on the board.
-2.  Calculate both a middlegame score (`mg_score`) and an endgame score (`eg_score`) for the position.
-3.  Combine them: `final_score = (mg_score * phase + eg_score * (24 - phase)) / 24;`
-
-### 4.2 Evaluation Components
-
-- **Pawn Structure**: Use dedicated functions to find and apply penalties for doubled pawns, isolated pawns, and bonuses for passed pawns.
-- **King Safety**: A simple approach is to create a "danger score" for the king. For each square around the king, add points for each enemy piece that attacks it. This score can be subtracted from the evaluation.
-- **Piece Mobility**: For each piece, count the number of legal moves it has. Add a small bonus for each move, as more mobile pieces are generally better.
+### 4.2 Other Evaluation Terms
+- **Mobility**: Add a bonus for the number of legal moves a piece has.
+- **Bishop Pair**: A bonus of around 50 points for having two bishops.
+- **Connected Rooks**: A bonus for having rooks on the same rank or file that can see each other.
+- **King Safety**: Penalize for open files around the king, and reward for pawn shields.
 
 ---
 
@@ -162,12 +135,55 @@ The importance of evaluation terms changes as the game progresses. King safety i
 
 To be used by graphical interfaces (GUIs) like Arena or CuteChess, an engine must implement a communication protocol. The **Universal Chess Interface (UCI)** is the standard.
 
-Your `main()` loop should not just be for playing, but for listening to UCI commands:
+Here is a more robust `main` loop:
 
-**The Main Loop Algorithm**:
-1.  Wait for input from the GUI.
-2.  If the input is `"uci"`, respond with `"id name MyEngine"` and `"uciok"`.
-3.  If the input is `"isready"`, respond with `"readyok"`.
-4.  If the input starts with `"position"`, parse the FEN string or move list and set up the internal board.
-5.  If the input starts with `"go"`, parse the time controls (e.g., `wtime`, `btime`) and start your search function in a separate thread.
-6.  When the search function completes, print the result to the console in the format `"bestmove e2e4"`.
+```cpp
+#include <iostream>
+#include <string>
+#include <thread>
+
+void search_thread(Position pos) { ... }
+
+int main() {
+    Position pos;
+    std::string line;
+
+    while (std::getline(std::cin, line)) {
+        if (line == "uci") {
+            std::cout << "id name MyEngine" << std::endl;
+            std::cout << "id author YourName" << std::endl;
+            std::cout << "uciok" << std::endl;
+        } else if (line == "isready") {
+            std::cout << "readyok" << std::endl;
+        } else if (line.substr(0, 8) == "position") {
+            // parse FEN and moves
+        } else if (line.substr(0, 2) == "go") {
+            // parse time controls
+            std::thread t(search_thread, pos);
+            t.detach();
+        } else if (line == "quit") {
+            break;
+        }
+    }
+    return 0;
+}
+```
+
+---
+
+## Chapter 6: Testing and Debugging
+
+Building a chess engine is notoriously bug-prone. A solid testing strategy is essential.
+
+### 6.1 Perft Testing
+**Perft** (Performance Test) is a standard way to verify the correctness of a move generator. It calculates the total number of legal moves to a certain depth.
+
+### 6.2 FEN Parsing
+A robust FEN (Forsyth-Edwards Notation) parser is critical for testing. It allows you to set up any position easily. Make sure your FEN parser can handle all aspects of the FEN specification, including en-passant, castling rights, and the fifty-move rule.
+
+### 6.3 Using a Testing Framework
+Consider using a testing framework like Google Test to create a suite of tests for your engine. You can create tests for:
+- FEN parsing
+- Move generation (perft)
+- Evaluation (e.g., check that the evaluation of the starting position is 0)
+- Search (e.g., check that the engine finds a simple mate-in-1)
