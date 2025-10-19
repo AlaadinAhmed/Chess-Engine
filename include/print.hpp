@@ -105,4 +105,21 @@ inline void printSequentialBoard(const uint64_t pieces[]) {
     }
 }
 
+inline void print_board_from_pos(const Position& pos) {
+    uint64_t board = 0;
+    board |= pos.WhitePawns;
+    board |= pos.WhiteKnights;
+    board |= pos.WhiteBishops;
+    board |= pos.WhiteRooks;
+    board |= pos.WhiteQueen;
+    board |= pos.WhiteKing;
+    board |= pos.BlackPawns;
+    board |= pos.BlackKnights;
+    board |= pos.BlackBishops;
+    board |= pos.BlackRooks;
+    board |= pos.BlackQueen;
+    board |= pos.BlackKing;
+    printBoard(board);
+}
+
 std::string move_to_uci(Move move);

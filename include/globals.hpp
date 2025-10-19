@@ -8,6 +8,9 @@
 
 
 extern TranspositionTable tt;
-extern int history_ply;
+extern thread_local int history_ply;
 extern bool debug_mode;
 extern bool ponder_mode;
+extern bool own_book_enabled;
+extern std::string book_path;
+extern int num_threads;

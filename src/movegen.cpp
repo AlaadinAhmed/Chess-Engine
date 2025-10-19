@@ -10,8 +10,12 @@
 #include "fen.hpp"
 #include "print.hpp"
 
-int history_ply = 0;
-UndoInfo history[256];
+thread_local int history_ply = 0;
+thread_local UndoInfo history[256];
+
+static inline void clear_history() {
+    history_ply = 0;
+}
 
 extern ZobristKeys zkey;
 
@@ -21,11 +25,11 @@ uint64_t GetPawnAttacks(const Position &pos, int square, bool by_white) {
     uint64_t attacks = 0;
     uint64_t pawn = 1ULL << square;
     if (by_white) {
-        attacks |= (pawn << 7) & ~0x0101010101010101; // Not on H file
-        attacks |= (pawn << 9) & ~0x8080808080808080; // Not on A file
+        attacks |= (pawn << 7) & ~FileA; // Not on A file
+        attacks |= (pawn << 9) & ~FileH; // Not on H file
     } else {
-        attacks |= (pawn >> 7) & ~0x8080808080808080; // Not on A file
-        attacks |= (pawn >> 9) & ~0x0101010101010101; // Not on H file
+        attacks |= (pawn >> 7) & ~FileH; // Not on H file
+        attacks |= (pawn >> 9) & ~FileA; // Not on A file
     }
     return attacks;
 }
@@ -447,13 +451,17 @@ void generate_moves(Position &pos, MoveList &move_list) {
     if (pos.whiteToMove) {
         // Pawns
         pieces = pos.WhitePawns;
-        int pawn_moves_count = 0;
         if (debug_mode) { printf("DEBUG: Generating White Pawn moves\n"); } // Added debug print
         while (pieces) {
             int from = __builtin_ctzll(pieces);
+            if (get_piece_at(pos, from) == NO_PIECE) {
+                printf("ERROR: from square is empty! from: %d", from);
+                print_board_from_pos(pos);
+                exit(1);
+            }
             uint64_t current_pawn_moves = GetPawnMoves(pos, from, true);
             uint64_t temp_moves = current_pawn_moves;
-            if (debug_mode) { printf("DEBUG: Pawn from %d, moves %llu\n", from, temp_moves); } // Added debug print
+            if (debug_mode) { printf("DEBUG: Pawn from %d, to %d\n", from, __builtin_ctzll(temp_moves)); } // Added debug print
             while (temp_moves) {
                 int to = __builtin_ctzll(temp_moves);
                                     if ((1ULL << to) & 0xFF00000000000000) { // Promotion
@@ -516,16 +524,22 @@ void generate_moves(Position &pos, MoveList &move_list) {
         if (debug_mode) { printf("DEBUG: Generating White Knight moves\n"); }
         while (pieces) {
             int from = __builtin_ctzll(pieces);
-                            uint64_t moves = GetKnightAttacks(pos, from) & ~pos.WhiteoccupiedSquares;
-                            while (moves) {
-                                int to = __builtin_ctzll(moves);
-                                current_move = {from, to};
-                                temp_pos = pos;
-                                makemove(temp_pos, current_move);
-                                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
-                                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
-                                    move_list.moves[move_list.count++] = current_move;
-                                }                undomove(temp_pos, current_move);
+            if (get_piece_at(pos, from) == NO_PIECE) {
+                printf("ERROR: from square is empty! from: %d", from);
+                print_board_from_pos(pos);
+                exit(1);
+            }
+            uint64_t moves = GetKnightAttacks(pos, from) & ~pos.WhiteoccupiedSquares;
+            if (debug_mode) { printf("DEBUG: Knight from %d, to %d\n", from, __builtin_ctzll(moves)); }
+            while (moves) {
+                int to = __builtin_ctzll(moves);
+                current_move = {from, to};
+                temp_pos = pos;
+                makemove(temp_pos, current_move);
+                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
+                    move_list.moves[move_list.count++] = current_move;
+                }                undomove(temp_pos, current_move);
                 moves &= moves - 1;
             }
             pieces &= pieces - 1;
@@ -624,7 +638,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
             if (!is_square_attacked(pos, from, false)) { // King not in check
                 // Kingside Castling
                 if ((pos.castelingRights & 1) && // White Kingside Castling Right
-                    !((pos.occupiedSquares >> 5) & 0x3ULL) && // f1 and g1 are empty
+                    get_piece_at(pos, 5) == NO_PIECE && get_piece_at(pos, 6) == NO_PIECE &&
                     !is_square_attacked(pos, 5, false) && // f1 not attacked
                     !is_square_attacked(pos, 6, false)) { // g1 not attacked
                     if (debug_mode) { printf("DEBUG: White Kingside Castling generated (e1g1)\n"); }
@@ -633,7 +647,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
                 }
                 // Queenside Castling
                 if ((pos.castelingRights & 2) && // White Queenside Castling Right
-                    !((pos.occupiedSquares >> 1) & 0x7ULL) && // b1, c1, d1 are empty
+                    get_piece_at(pos, 1) == NO_PIECE && get_piece_at(pos, 2) == NO_PIECE && get_piece_at(pos, 3) == NO_PIECE &&
                     !is_square_attacked(pos, 3, false) && // d1 not attacked
                     !is_square_attacked(pos, 2, false)) { // c1 not attacked
                     if (debug_mode) { printf("DEBUG: White Queenside Castling generated (e1c1)\n"); }
@@ -800,7 +814,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
             if (!is_square_attacked(pos, from, true)) { // King not in check
                 // Kingside Castling
                 if ((pos.castelingRights & 4) && // Black Kingside Castling Right
-                    !((pos.occupiedSquares >> 61) & 0x3ULL) && // f8 and g8 are empty
+                    get_piece_at(pos, 61) == NO_PIECE && get_piece_at(pos, 62) == NO_PIECE &&
                     !is_square_attacked(pos, 61, true) && // f8 not attacked
                     !is_square_attacked(pos, 62, true)) { // g8 not attacked
                     move_list.moves[move_list.count++] = {from, 62}; // e8g8
@@ -808,7 +822,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
                 }
                 // Queenside Castling
                 if ((pos.castelingRights & 8) && // Black Queenside Castling Right
-                    !((pos.occupiedSquares >> 57) & 0x7ULL) && // b8, c8, d8 are empty
+                    get_piece_at(pos, 57) == NO_PIECE && get_piece_at(pos, 58) == NO_PIECE && get_piece_at(pos, 59) == NO_PIECE &&
                     !is_square_attacked(pos, 59, true) && // d8 not attacked
                     !is_square_attacked(pos, 58, true)) { // c8 not attacked
                     move_list.moves[move_list.count++] = {from, 58}; // e8c8

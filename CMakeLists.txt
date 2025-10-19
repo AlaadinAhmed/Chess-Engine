@@ -12,22 +12,17 @@ list(REMOVE_ITEM OCTOKNIGHT_SRC "${CMAKE_SOURCE_DIR}/src/main.cpp")
 add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})
 
 add_executable(OctoKnight src/main.cpp)
-target_link_libraries(OctoKnight OctoKnightLib)
+target_link_libraries(OctoKnight OctoKnightLib pthread)
 
 enable_testing()
 
 add_subdirectory(extern/googletest)
 
-file(GLOB TEST_SRC
-     "tests/*.cpp"
-)
-
-add_executable(OctoKnight_test ${TEST_SRC})
-
+add_executable(OctoKnight_illegal_move_test tests/illegal_move_test.cpp)
 target_link_libraries(
-    OctoKnight_test
+    OctoKnight_illegal_move_test
     gtest_main
     OctoKnightLib
+    pthread
 )
-
-add_test(NAME OctoKnight_test COMMAND OctoKnight_test)
+add_test(NAME OctoKnight_illegal_move_test COMMAND OctoKnight_illegal_move_test)

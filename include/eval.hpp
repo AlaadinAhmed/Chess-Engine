@@ -6,11 +6,20 @@
 #pragma once
 #include "position.hpp"
 
+struct EvalConfig {
+    int isolated_pawn_penalty;
+    int doubled_pawn_penalty;
+    int passed_pawn_bonus;
+    int bishop_pair_bonus;
+    int tempo_bonus;
+    int rook_open_file_bonus;
+    int rook_semi_open_file_bonus;
+};
+
+extern const EvalConfig default_eval_config;
+
 /**
- * @brief Calculates the current game phase (e.g., opening, middlegame, endgame).
- *
- * @param pos The current position.
- * @return An integer representing the game phase.
+ * @brief Calculates tapered game phase in [0, 24], higher -> more middlegame.
  */
 int calculateGamePhase(const Position &pos);
 
@@ -47,4 +56,4 @@ int countPassedPawns(const Position &pos, bool is_white);
  * @param pos The position to evaluate.
  * @return The score of the position.
  */
-int evaluate(Position &pos);
+int evaluate(Position &pos, const EvalConfig &config = default_eval_config);
