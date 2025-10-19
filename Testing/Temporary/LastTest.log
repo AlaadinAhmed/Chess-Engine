@@ -1,0 +1,35 @@
+Start testing: Oct 20 00:46 EEST
+----------------------------------------------------------
+1/1 Testing: OctoKnight_illegal_move_test
+1/1 Test: OctoKnight_illegal_move_test
+Command: "/home/aladdin/Chess-Engine/OctoKnight_illegal_move_test"
+Directory: /home/aladdin/Chess-Engine
+"OctoKnight_illegal_move_test" start time: Oct 20 00:46 EEST
+Output:
+----------------------------------------------------------
+Running main() from /home/aladdin/Chess-Engine/extern/googletest/googletest/src/gtest_main.cc
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IllegalMoveTest
+[ RUN      ] IllegalMoveTest.ReproduceBug
+info depth 1 seldepth 1 score cp 0 time 0 nodes 21 nps 0 pv a2a3 
+info depth 2 seldepth 2 score cp 0 time 0 nodes 42 nps 0 pv a2a3 
+info depth 3 seldepth 3 score cp 0 time 0 nodes 63 nps 0 pv a2a3 
+info depth 4 seldepth 4 score cp 0 time 0 nodes 84 nps 0 pv a2a3 
+info depth 5 seldepth 5 score cp 0 time 0 nodes 105 nps 0 pv a2a3 
+info depth 6 seldepth 6 score cp 0 time 0 nodes 126 nps 0 pv a2a3 
+[       OK ] IllegalMoveTest.ReproduceBug (0 ms)
+[----------] 1 test from IllegalMoveTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.29 sec
+----------------------------------------------------------
+Test Passed.
+"OctoKnight_illegal_move_test" end time: Oct 20 00:46 EEST
+"OctoKnight_illegal_move_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 20 00:46 EEST

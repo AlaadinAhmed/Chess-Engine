@@ -35,6 +35,7 @@ uint64_t GetPawnAttacks(const Position &pos, int square, bool by_white) {
 }
 
 bool is_square_attacked(const Position &pos, int square, bool by_white) {
+    if (debug_mode) { printf("DEBUG: is_square_attacked for square %d, by_white %d\n", square, by_white); }
     if (!by_white) { // Check if attacked by black
         // Check for pawn attacks
         uint64_t black_pawns = pos.BlackPawns;

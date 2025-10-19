@@ -1,6 +1,8 @@
 /**
  * @file magics.hpp
  * @brief Contains functions for magic bitboards.
+ * @defgroup move_generation Move Generation
+ * @ingroup move_generation
  */
 
 #pragma once

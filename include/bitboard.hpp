@@ -1,6 +1,8 @@
 /**
  * @file bitboard.hpp
  * @brief Contains functions for working with bitboards.
+ * @defgroup board_representation Board Representation
+ * @ingroup board_representation
  */
 
 #pragma once
@@ -25,6 +27,13 @@ uint64_t setBitboard(int square);
  */
 bool getBit(uint64_t bitboard, int square);
 
+/**
+ * @brief Gets the index of the least significant bit (LSB) from a bitboard.
+ *
+ * @param bitboard The bitboard.
+ * @return The index of the LSB.
+ */
+int get_lsb_index(uint64_t bitboard);
 
 
 extern uint64_t kingAttacks[64];

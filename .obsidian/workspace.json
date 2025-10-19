@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "README.md",
+                "file": "BUILD_GUIDE.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "BUILD_GUIDE"
             }
           }
         ]
@@ -171,8 +171,8 @@
   },
   "active": "3dfba461cd122219",
   "lastOpenFiles": [
+    "README.md",
     "README.md~",
-    "TODO.md",
-    "README.md"
+    "TODO.md"
   ]
 }

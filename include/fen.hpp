@@ -1,6 +1,7 @@
 /**
  * @file fen.hpp
  * @brief Contains functions for parsing FEN strings.
+ * @ingroup board_representation
  */
 
 #pragma once

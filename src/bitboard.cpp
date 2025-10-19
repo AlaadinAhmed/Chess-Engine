@@ -48,3 +48,10 @@ uint64_t setBitboard(int square){
     uint64_t bitboard = 1ULL << square;
     return bitboard;
 }
+
+int get_lsb_index(uint64_t bitboard) {
+    if (bitboard == 0) {
+        return -1; // Or throw an error, or return a special value
+    }
+    return __builtin_ctzll(bitboard);
+}

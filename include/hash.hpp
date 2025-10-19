@@ -1,6 +1,8 @@
 /**
  * @file hash.hpp
  * @brief Contains functions for Zobrist hashing.
+ * @defgroup data_structures Data Structures
+ * @ingroup data_structures
  */
 
 #pragma once

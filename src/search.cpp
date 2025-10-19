@@ -184,6 +184,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
 }
 
 int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
+    searching = true;
     Move current_best_move;
     int current_best_score = 0;
 

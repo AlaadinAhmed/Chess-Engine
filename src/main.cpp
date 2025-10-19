@@ -47,27 +47,20 @@ int main() {
         } else if (command == "isready") {
             std::cout << "readyok" << std::endl;
         } else if (command == "setoption") {
-            std::string name_str, value_str;
-            ss >> name_str; // "name"
+            std::string token;
+            ss >> token; // Should be "name"
             std::string option_name;
-            std::getline(ss, option_name, ' '); // read the rest up to ' value' or until end
-            // Normalize parsing: expect optional 'value'
-            std::string maybe_value_token;
-            if (!(ss >> maybe_value_token)) {
-                maybe_value_token.clear();
+            while (ss >> token && token != "value") {
+                option_name += token;
             }
             std::string option_value;
-            if (maybe_value_token == "value") {
-                std::getline(ss, option_value);
-            } else {
-                option_value = maybe_value_token;
+            if (token == "value") {
+                ss >> option_value;
             }
-            // trim leading spaces
-            if (!option_name.empty() && option_name[0] == ' ') option_name.erase(0, 1);
-            if (!option_value.empty() && option_value[0] == ' ') option_value.erase(0, 1);
 
             if (option_name == "Debug") {
                 if (option_value == "true") debug_mode = true; else if (option_value == "false") debug_mode = false;
+                if (debug_mode) { std::cout << "info string Debug mode set to: " << (debug_mode ? "true" : "false") << std::endl; }
             } else if (option_name == "Hash") {
                 if (!option_value.empty()) {
                     int hash_size_mb = std::stoi(option_value);
@@ -86,7 +79,7 @@ int main() {
                     num_threads = t;
                 }
             }
-        } // Added closing brace for 'setoption' command block
+        }
         else if (command == "debug") { // Handle direct 'debug on/off' command
             std::string debug_arg;
             ss >> debug_arg;
@@ -101,13 +94,17 @@ int main() {
             if (arg == "startpos") {
                 current_pos.setStartingPosition();
                 current_pos.zobrist_key = calculate_initial_hash(current_pos); // Update hash key
+                tt.clear(); // Clear TT on position change
             } else if (arg == "fen") {
                 std::string fen_string;
                 while (ss >> arg && arg != "moves") {
                     fen_string += arg + " ";
                 }
                 current_pos.setFen(fen_string);
+                if (debug_mode) { std::cout << "info string FEN parsed: " << fen_string << std::endl; }
                 current_pos.zobrist_key = calculate_initial_hash(current_pos); // Update hash key
+                if (debug_mode) { std::cout << "info string WhitePawns after setFen: " << current_pos.WhitePawns << std::endl; }
+                tt.clear(); // Clear TT on position change
             }
             if (arg == "moves") {
                 while (ss >> arg) {
@@ -120,6 +117,7 @@ int main() {
             current_pos.setStartingPosition();
             current_pos.zobrist_key = calculate_initial_hash(current_pos);
         } else if (command == "go") {
+            debug_mode = true;
             searching = true;
             search_depth = 64; // Default search depth
             move_time = -1; // Default no movetime limit
@@ -155,6 +153,10 @@ int main() {
             if (infinite_search) {
                 search_depth = 100; // A large enough number to represent infinite depth
             }
+            
+            // Debug: Print search parameters
+            std::cout << "info string Search params: depth=" << search_depth 
+                      << " move_time=" << move_time << " infinite=" << infinite_search << std::endl;
             if (ponder_this_search) {
                 ponder_mode = true; // Set ponder mode for this search
             } else {
@@ -180,8 +182,54 @@ int main() {
             } else if (move_time == -1 && !infinite_search) {
                 move_time = 1000; // default 1s/move when no limits supplied
             }
-            int score = search_root_parallel(current_pos, search_depth, move_time, best_move);
+            // Debug: Print position state before search
+            std::cout << "info string Position before search: whiteToMove=" << current_pos.whiteToMove 
+                      << " zobrist=" << current_pos.zobrist_key << std::endl;
+            
+            // Force single-threaded search to debug illegal moves
+            int score = search(current_pos, search_depth, move_time, best_move);
             searching = false;
+            
+            // Debug: Print position state after search
+            std::cout << "info string Position after search: whiteToMove=" << current_pos.whiteToMove 
+                      << " zobrist=" << current_pos.zobrist_key << std::endl;
+            
+            if (debug_mode) { std::cout << "info string Best move before legality check: " << move_to_uci(best_move) << std::endl; }
+            // Debug: Check if best_move is legal
+            MoveList legal_moves;
+            generate_moves(current_pos, legal_moves);
+            if (debug_mode) {
+                std::cout << "info string Legal moves generated for legality check: ";
+                for (int i = 0; i < legal_moves.count; ++i) {
+                    std::cout << move_to_uci(legal_moves.moves[i]) << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << "info string best move from search: " << move_to_uci(best_move) << std::endl;
+            bool move_is_legal = false;
+            for (int i = 0; i < legal_moves.count; ++i) {
+                if (legal_moves.moves[i].from == best_move.from && 
+                    legal_moves.moves[i].to == best_move.to &&
+                    legal_moves.moves[i].promotion == best_move.promotion) {
+                    move_is_legal = true;
+                    break;
+                }
+            }
+            
+            if (!move_is_legal) {
+                std::cout << "info string ILLEGAL MOVE DETECTED" << std::endl;
+                std::cout << "info string ERROR: Search returned illegal move " << move_to_uci(best_move) << std::endl;
+                std::cout << "info string Legal moves: ";
+                for (int i = 0; i < legal_moves.count; ++i) {
+                    std::cout << move_to_uci(legal_moves.moves[i]) << " ";
+                }
+                std::cout << std::endl;
+                // Use first legal move instead
+                if (legal_moves.count > 0) {
+                    best_move = legal_moves.moves[0];
+                }
+            }
+            
             std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
         } else if (command == "stop") {
             searching = false;

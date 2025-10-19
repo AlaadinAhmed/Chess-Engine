@@ -1,6 +1,7 @@
 /**
  * @file position.hpp
- * @brief Contains the Position struct and related enums and functions.
+ * @brief Contains the core data structures for representing the chess board state,
+ * including the Position struct, Move representation, and piece definitions.
  */
 
 #pragma once
@@ -8,111 +9,131 @@
 #include <string>
 
 /**
- * @brief Enum for the pieces.
+ * @brief Defines all piece types for both colors.
+ * The naming convention is `W_` for White and `B_` for Black.
  */
 enum Pieces {
-  W_KNIGHT,
-  W_BISHOP,
-  W_ROOK,
-  W_PAWN,
-  W_QUEEN,
-  W_KING,
-  B_KNIGHT,
-  B_BISHOP,
-  B_ROOK,
-  B_PAWN,
-  B_QUEEN,
-  B_KING,
-  NO_PIECE
+  W_KNIGHT, ///< White Knight
+  W_BISHOP, ///< White Bishop
+  W_ROOK,   ///< White Rook
+  W_PAWN,   ///< White Pawn
+  W_QUEEN,  ///< White Queen
+  W_KING,   ///< White King
+  B_KNIGHT, ///< Black Knight
+  B_BISHOP, ///< Black Bishop
+  B_ROOK,   ///< Black Rook
+  B_PAWN,   ///< Black Pawn
+  B_QUEEN,  ///< Black Queen
+  B_KING,   ///< Black King
+  NO_PIECE  ///< Represents an empty square or no promotion piece.
 };
 
 /**
- * @brief Struct for a move.
+ * @brief Represents a single chess move.
+ * A move is defined by a starting square, an ending square, and an optional
+ * promotion piece.
  */
 struct Move {
-    int from; /**< The starting square of the move. */
-    int to;   /**< The ending square of the move. */
-    Pieces promotion = NO_PIECE; /**< The piece to promote to. */
+    int from; ///< The starting square of the move (0-63).
+    int to;   ///< The ending square of the move (0-63).
+    Pieces promotion; ///< If the move is a promotion, this holds the piece to promote to. Defaults to NO_PIECE.
 };
 
 /**
- * @brief Struct for a list of moves.
+ * @brief A container for a list of possible moves in a position.
  */
 struct MoveList {
-    Move moves[256]; /**< The list of moves. */
-    int count = 0;   /**< The number of moves in the list. */
+    Move moves[256]; ///< A static array capable of holding all possible moves in any position.
+    int count = 0;   ///< The number of moves currently stored in the list.
 };
 
 /**
- * @brief Struct for the position on the board.
+ * @brief The core data structure representing the entire state of a chess game.
+ *
+ * This struct holds all information necessary to describe a position: piece locations,
+ * current turn, castling rights, en passant square, and move counters. It uses
+ * bitboards for an efficient representation of piece locations.
  */
 struct Position {
-  uint64_t BlackKnights = 0; /**< Bitboard for the black knights. */
-  uint64_t BlackBishops = 0; /**< Bitboard for the black bishops. */
-  uint64_t BlackRooks = 0;   /**< Bitboard for the black rooks. */
-  uint64_t BlackQueen = 0;   /**< Bitboard for the black queen. */
-  uint64_t BlackKing = 0;    /**< Bitboard for the black king. */
-  uint64_t BlackPawns = 0;   /**< Bitboard for the black pawns. */
+  /** @name Piece Bitboards
+   *  A set of 12 bitboards, one for each piece type and color. Each bit
+   *  in the 64-bit integer corresponds to a square on the board.
+   * @{
+   */
+  uint64_t BlackKnights = 0;
+  uint64_t BlackBishops = 0;
+  uint64_t BlackRooks = 0;
+  uint64_t BlackQueen = 0;
+  uint64_t BlackKing = 0;
+  uint64_t BlackPawns = 0;
 
-  uint64_t WhiteKnights = 0; /**< Bitboard for the white knights. */
-  uint64_t WhiteBishops = 0; /**< Bitboard for the white bishops. */
-  uint64_t WhiteRooks = 0;   /**< Bitboard for the white rooks. */
-  uint64_t WhiteQueen = 0;   /**< Bitboard for the white queen. */
-  uint64_t WhiteKing = 0;    /**< Bitboard for the white king. */
-  uint64_t WhitePawns = 0;   /**< Bitboard for the white pawns. */
+  uint64_t WhiteKnights = 0;
+  uint64_t WhiteBishops = 0;
+  uint64_t WhiteRooks = 0;
+  uint64_t WhiteQueen = 0;
+  uint64_t WhiteKing = 0;
+  uint64_t WhitePawns = 0;
+  /** @} */
 
-  bool whiteToMove;        /**< True if it's white's turn to move. */
-  uint64_t enPassant = 0;    /**< The en passant square. */
-  int move50rule = 0;      /**< The 50-move rule counter. */
-  int move = 0;            /**< The current move number. */
-  uint8_t castelingRights = 0; /**< The castling rights. */
+  /** @name Game State
+   *  Variables that define the current state of the game.
+   * @{
+   */
+  bool whiteToMove;        ///< True if it is white's turn to move, false for black.
+  uint64_t enPassant = 0;    ///< A bitboard with a single bit set on the en passant target square, if any. 0 otherwise.
+  int move50rule = 0;      ///< Counter for the 50-move rule. Incremented for moves that are not pawn pushes or captures.
+  int move = 0;            ///< The current full move number. Starts at 1 and increments after black moves.
+  uint8_t castelingRights = 0; ///< Bitfield for castling rights. (e.g., 1=WK, 2=WQ, 4=BK, 8=BQ).
+  /** @} */
 
-  uint64_t BlackoccupiedSquares = 0; /**< Bitboard for all black pieces. */
-  uint64_t WhiteoccupiedSquares = 0; /**< Bitboard for all white pieces. */
-  uint64_t occupiedSquares = 0;    /**< Bitboard for all occupied squares. */
-  uint64_t emptySquares = 0;       /**< Bitboard for all empty squares. */
+  /** @name Occupancy Bitboards
+   *  Combined bitboards for efficient lookup of occupied squares. These are derived
+   *  from the individual piece bitboards.
+   * @{
+   */
+  uint64_t BlackoccupiedSquares = 0; ///< Bitboard of all squares occupied by black pieces.
+  uint64_t WhiteoccupiedSquares = 0; ///< Bitboard of all squares occupied by white pieces.
+  uint64_t occupiedSquares = 0;    ///< Bitboard of all occupied squares (White | Black).
+  uint64_t emptySquares = 0;       ///< Bitboard of all empty squares (~occupiedSquares).
+  /** @} */
 
-  uint64_t zobrist_key = 0; /**< The Zobrist key for the position. */
+  /**
+   * @brief A unique key for the position, used for transposition tables.
+   * The Zobrist key is calculated incrementally by XORing random numbers
+   * associated with each piece on each square, castling rights, en passant square,
+   * and side to move.
+   */
+  uint64_t zobrist_key = 0;
 
+  /**
+   * @brief Sets the board to the standard chess starting position.
+   */
   void setStartingPosition();
+
+  /**
+   * @brief Sets the board state from a Forsyth-Edwards Notation (FEN) string.
+   * @param fen_string A valid FEN string.
+   */
   void setFen(const std::string& fen_string);
 
   /**
-   * @brief Resets the position to the starting position.
+   * @brief Resets all members of the Position struct to their default (empty) state.
    */
   void reset() {
-    BlackKnights = 0;
-    BlackBishops = 0;
-    BlackRooks = 0;
-    BlackQueen = 0;
-    BlackKing = 0;
-    BlackPawns = 0;
-    WhiteKnights = 0;
-    WhiteBishops = 0;
-    WhiteRooks = 0;
-    WhiteQueen = 0;
-    WhiteKing = 0;
-    WhitePawns = 0;
-
-    enPassant = 0;
-    move50rule = 0;
-    move = 0;
-    castelingRights = 0;
-
-    BlackoccupiedSquares = 0;
-    WhiteoccupiedSquares = 0;
-    occupiedSquares = 0;
-    emptySquares = 0;
-
+    // Implementation is inlined for performance
+    BlackKnights = 0; BlackBishops = 0; BlackRooks = 0; BlackQueen = 0; BlackKing = 0; BlackPawns = 0;
+    WhiteKnights = 0; WhiteBishops = 0; WhiteRooks = 0; WhiteQueen = 0; WhiteKing = 0; WhitePawns = 0;
+    enPassant = 0; move50rule = 0; move = 0; castelingRights = 0;
+    BlackoccupiedSquares = 0; WhiteoccupiedSquares = 0; occupiedSquares = 0; emptySquares = 0;
     zobrist_key = 0;
   }
 };
 
 /**
- * @brief Gets the piece at a given square.
+ * @brief Gets the piece type located at a specific square.
  *
- * @param pos The position.
- * @param sq The square.
- * @return The piece at the given square.
+ * @param pos The const Position object to inspect.
+ * @param sq The square index (0-63) to check.
+ * @return The piece at the given square, or NO_PIECE if the square is empty.
  */
 Pieces get_piece_at(const Position &pos, int sq);
