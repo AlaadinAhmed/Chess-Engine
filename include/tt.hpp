@@ -13,7 +13,8 @@
 enum HashFlag {
   HASH_FLAG_EXACT, /**< The score is an exact value. */
   HASH_FLAG_ALPHA, /**< The score is a lower bound. */
-  HASH_FLAG_BETA   /**< The score is an upper bound. */
+  HASH_FLAG_BETA,   /**< The score is an upper bound. */
+  HASH_FLAG_UNKNOWN /**< The score is unknown. */
 };
 
 /**
@@ -68,6 +69,7 @@ public:
    * @param best_move The best move found.
    */
   void save(uint64_t key, int depth, HashFlag flag, int score, Move best_move);
+  void resize(int size_mb);
 
 private:
   TTEntry *table;      /**< The transposition table. */

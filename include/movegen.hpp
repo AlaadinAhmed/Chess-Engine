@@ -17,13 +17,7 @@
  */
 bool is_square_attacked(const Position &pos, int square, bool by_white);
 
-/**
- * @brief Peeks at the attacked squares.
- *
- * @param pos The position.
- * @return A bitboard of the attacked squares.
- */
-uint64_t peekAttackedSquares(const Position &pos, bool by_white);
+
 
 /**
  * @brief Gets the pawn moves for a given square.
@@ -69,14 +63,7 @@ uint64_t GetKnightMoves (const Position &pos);
  */
 uint64_t GetKnightAttacks(const Position &pos, int square);
 
-/**
- * @brief Gets the queen attacks for a given square.
- *
- * @param pos The position.
- * @param square The square.
- * @return A bitboard of the queen attacks.
- */
-uint64_t GetQueenAttacks(const Position &pos, int square);
+
 
 /**
  * @brief Gets the queen moves for a given square.
@@ -113,3 +100,23 @@ void generate_moves(Position &pos, MoveList &move_list);
 void generate_captures(Position &pos, MoveList &move_list);
 
 void initKingAttacks();
+
+/**
+ * @brief Struct for storing information to undo a move.
+ */
+struct UndoInfo {
+    uint64_t oldHashKey; /**< The Zobrist key before the move. */
+    uint8_t oldCastelingRights; /**< The castling rights before the move. */
+    uint64_t oldEnPassant; /**< The en passant square before the move. */
+    int oldHalfMove; /**< The half-move clock before the move. */
+    Pieces oldCapturedPiece; /**< The piece captured by the move. */
+    bool isEnPassant; /**< True if the move was an en passant capture. */
+    int enPassantCapturedPawnSquare; /**< The square of the pawn captured by en passant. */
+    bool isCastling; /**< True if the move was a castling move. */
+    int castlingRookFrom; /**< The original square of the rook in a castling move. */
+    int castlingRookTo; /**< The destination square of the rook in a castling move. */
+    bool side; /**< The side to move before the move. */
+    Pieces movedPiece; /**< The piece that was moved. */
+};
+
+uint64_t get_attacks_from_square(int square, int direction, uint64_t occupied_squares);

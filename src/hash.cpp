@@ -33,7 +33,7 @@ uint64_t calculate_initial_hash(Position &pos) {
   }
   hash ^= zkey.castelingKeys[pos.castelingRights];
   if (pos.enPassant != 0) {
-    hash ^= zkey.epKeys[pos.enPassant / 8];
+    hash ^= zkey.epKeys[pos.enPassant % 8];
   }
   if (!pos.whiteToMove) {
     hash ^= zkey.sideKey;

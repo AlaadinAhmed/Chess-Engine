@@ -104,3 +104,5 @@ inline void printSequentialBoard(const uint64_t pieces[]) {
         std::cout << std::endl << std::endl;
     }
 }
+
+std::string move_to_uci(Move move);

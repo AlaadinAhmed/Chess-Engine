@@ -29,3 +29,5 @@ target_link_libraries(
     gtest_main
     OctoKnightLib
 )
+
+add_test(NAME OctoKnight_test COMMAND OctoKnight_test)

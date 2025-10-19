@@ -4,6 +4,7 @@
 #include "position.hpp"
 #include "print.hpp"
 #include "fen.hpp"
+#include "globals.hpp"
 
 void parseFEN(Position &pos, std::string fen){
     pos.reset();

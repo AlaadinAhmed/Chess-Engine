@@ -48,3 +48,18 @@ void TranspositionTable::save(uint64_t key, int depth, HashFlag flag,
   table[index].score = score;
   table[index].best_move = best_move;
 }
+
+void TranspositionTable::resize(int size_mb) {
+  log_debug("TranspositionTable::resize() called with size_mb = " + std::to_string(size_mb));
+  if (table != nullptr) {
+    free(table);
+  }
+  num_entries = (size_mb * 1024 * 1024) / sizeof(TTEntry);
+  table = (TTEntry *)malloc(num_entries * sizeof(TTEntry));
+  if (table == nullptr) {
+    std::cerr << "ERROR: malloc failed for TranspositionTable resize!" << std::endl;
+    // Handle error
+  }
+  clear();
+  log_debug("TranspositionTable::resize() finished. New num_entries = " + std::to_string(num_entries));
+}

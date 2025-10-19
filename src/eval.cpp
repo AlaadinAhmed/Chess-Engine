@@ -67,6 +67,9 @@ const int king_pst_endgame[64] = {
 };
 
 const int ISOLATED_PAWN_PENALTY = 15;
+const int DOUBLED_PAWN_PENALTY = 10;
+const int PASSED_PAWN_BONUS = 20;
+const int BISHOP_PAIR_BONUS = 30;
 
 // File masks for pawn structure evaluation
 
@@ -74,6 +77,41 @@ const int ISOLATED_PAWN_PENALTY = 15;
 const uint64_t file_masks[8] = {
     0x0101010101010101ULL, 0x0202020202020202ULL, 0x0404040404040404ULL, 0x0808080808080808ULL,
     0x1010101010101010ULL, 0x2020202020202020ULL, 0x4040404040404040ULL, 0x8080808080808080ULL
+};
+
+const uint64_t white_passed_pawn_masks[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0x0101010101010100ULL, 0x0202020202020200ULL, 0x0404040404040400ULL, 0x0808080808080800ULL,
+    0x1010101010101000ULL, 0x2020202020202000ULL, 0x4040404040404000ULL, 0x8080808080808000ULL,
+    0x0101010101010000ULL, 0x0202020202020000ULL, 0x0404040404040000ULL, 0x0808080808080000ULL,
+    0x1010101010100000ULL, 0x2020202020200000ULL, 0x4040404040400000ULL, 0x8080808080800000ULL,
+    0x0101010101000000ULL, 0x0202020202000000ULL, 0x0404040404000000ULL, 0x0808080808000000ULL,
+    0x1010101010000000ULL, 0x2020202020000000ULL, 0x4040404040000000ULL, 0x8080808080000000ULL,
+    0x0101010100000000ULL, 0x0202020200000000ULL, 0x0404040400000000ULL, 0x0808080800000000ULL,
+    0x1010101000000000ULL, 0x2020202000000000ULL, 0x4040404000000000ULL, 0x8080808000000000ULL,
+    0x0101010000000000ULL, 0x0202020000000000ULL, 0x0404040000000000ULL, 0x0808080000000000ULL,
+    0x1010100000000000ULL, 0x2020200000000000ULL, 0x4040400000000000ULL, 0x8080800000000000ULL,
+    0x0101000000000000ULL, 0x0202000000000000ULL, 0x0404000000000000ULL, 0x0808000000000000ULL,
+    0x1010000000000000ULL, 0x2020000000000000ULL, 0x4040000000000000ULL, 0x8080000000000000ULL,
+};
+
+const uint64_t black_passed_pawn_masks[64] = {
+    0x0001010101010101ULL, 0x0002020202020202ULL, 0x0004040404040404ULL, 0x0008080808080808ULL,
+    0x0010101010101010ULL, 0x0020202020202020ULL, 0x0040404040404040ULL, 0x0080808080808080ULL,
+    0x00010101010101ULL, 0x00020202020202ULL, 0x00040404040404ULL, 0x00080808080808ULL,
+    0x00101010101010ULL, 0x00202020202020ULL, 0x00404040404040ULL, 0x00808080808080ULL,
+    0x000101010101ULL, 0x000202020202ULL, 0x000404040404ULL, 0x000808080808ULL,
+    0x001010101010ULL, 0x002020202020ULL, 0x004040404040ULL, 0x008080808080ULL,
+    0x0001010101ULL, 0x0002020202ULL, 0x0004040404ULL, 0x0008080808ULL,
+    0x0010101010ULL, 0x0020202020ULL, 0x0040404040ULL, 0x0080808080ULL,
+    0x00010101ULL, 0x00020202ULL, 0x00040404ULL, 0x00080808ULL,
+    0x00101010ULL, 0x00202020ULL, 0x00404040ULL, 0x00808080ULL,
+    0x000101ULL, 0x000202ULL, 0x000404ULL, 0x000808ULL,
+    0x001010ULL, 0x002020ULL, 0x004040ULL, 0x008080ULL,
+    0x0001ULL, 0x0002ULL, 0x0004ULL, 0x0008ULL,
+    0x0010ULL, 0x0020ULL, 0x0040ULL, 0x0080ULL,
+    0, 0, 0, 0, 0, 0, 0, 0
 };
 
 int countIsolatedPawns(const Position &pos, bool is_white) {
@@ -95,6 +133,40 @@ int countIsolatedPawns(const Position &pos, bool is_white) {
         pawns &= pawns - 1;
     }
     return isolated_pawns;
+}
+
+int countDoubledPawns(const Position &pos, bool is_white) {
+    int doubled_pawns = 0;
+    uint64_t pawns = is_white ? pos.WhitePawns : pos.BlackPawns;
+
+    for (int file = 0; file < 8; ++file) {
+        if (__builtin_popcountll(pawns & file_masks[file]) > 1) {
+            doubled_pawns++;
+        }
+    }
+    return doubled_pawns;
+}
+
+int countPassedPawns(const Position &pos, bool is_white) {
+    int passed_pawns = 0;
+    uint64_t friendly_pawns = is_white ? pos.WhitePawns : pos.BlackPawns;
+    uint64_t enemy_pawns = is_white ? pos.BlackPawns : pos.WhitePawns;
+
+    uint64_t pawns = friendly_pawns;
+    while (pawns) {
+        int sq = __builtin_ctzll(pawns);
+        if (is_white) {
+            if (! (enemy_pawns & white_passed_pawn_masks[sq])) {
+                passed_pawns++;
+            }
+        } else {
+            if (! (enemy_pawns & black_passed_pawn_masks[sq])) {
+                passed_pawns++;
+            }
+        }
+        pawns &= pawns - 1;
+    }
+    return passed_pawns;
 }
 
 int calculateGamePhase(const Position &pos) {
@@ -199,8 +271,21 @@ int evaluate(Position &pos) {
         bb &= bb - 1;
     }
 
-    score += countIsolatedPawns(pos, true) * ISOLATED_PAWN_PENALTY;
-    score -= countIsolatedPawns(pos, false) * ISOLATED_PAWN_PENALTY;
+    score -= countIsolatedPawns(pos, true) * ISOLATED_PAWN_PENALTY;
+    score += countIsolatedPawns(pos, false) * ISOLATED_PAWN_PENALTY;
+
+    score -= countDoubledPawns(pos, true) * DOUBLED_PAWN_PENALTY;
+    score += countDoubledPawns(pos, false) * DOUBLED_PAWN_PENALTY;
+
+    score += countPassedPawns(pos, true) * PASSED_PAWN_BONUS;
+    score -= countPassedPawns(pos, false) * PASSED_PAWN_BONUS;
+
+    if (__builtin_popcountll(pos.WhiteBishops) >= 2) {
+        score += BISHOP_PAIR_BONUS;
+    }
+    if (__builtin_popcountll(pos.BlackBishops) >= 2) {
+        score -= BISHOP_PAIR_BONUS;
+    }
 
     return pos.whiteToMove ? score : -score;
 }

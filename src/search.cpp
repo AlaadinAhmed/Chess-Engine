@@ -90,6 +90,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
     }
 
     int best_score = -100000;
+    Move local_best_move = {}; // Initialize with default values
 
     log_debug("Found " + std::to_string(move_list.count) + " moves.");
     for (int i = 0; i < move_list.count; i++) {
@@ -101,7 +102,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         undomove(pos, move_list.moves[i]);
         if (score > best_score) {
             best_score = score;
-            best_move = move_list.moves[i];
+            local_best_move = move_list.moves[i];
         }
         if (best_score > alpha) {
             alpha = best_score;
@@ -109,10 +110,12 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
         if (alpha >= beta) {
             tt.save(pos.zobrist_key, current_depth, HASH_FLAG_BETA, beta, move_list.moves[i]); // Save the move that caused beta cutoff
+            best_move = local_best_move; // Assign the local best move before returning
             return beta;
         }
     }
 
+    best_move = local_best_move; // Assign the local best move to the reference parameter
     tt.save(pos.zobrist_key, current_depth, flag, best_score, best_move);
     return best_score;
 }
@@ -140,14 +143,16 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
             // Reconstruct PV
             std::string pv_string = "";
             Position temp_pos = pos;
-            Move pv_move = current_best_move;
             for (int i = 0; i < depth; ++i) {
-                if (pv_move.from == 0 && pv_move.to == 0) break; // Null move, end of PV
-                pv_string += move_to_uci(pv_move) + " ";
-                makemove(temp_pos, pv_move);
-                Move next_pv_move;
-                alpha_beta_search(temp_pos, 1, max_depth, -1000000, 1000000, next_pv_move); // Search for next move in PV
-                pv_move = next_pv_move;
+                bool found;
+                TTEntry* entry = tt.probe(temp_pos.zobrist_key, found);
+                if (found && entry->best_move.from != 0 && entry->best_move.to != 0) {
+                    Move pv_move = entry->best_move;
+                    pv_string += move_to_uci(pv_move) + " ";
+                    makemove(temp_pos, pv_move);
+                } else {
+                    break;
+                }
             }
 
             long long nps = 0;
@@ -157,6 +162,7 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
 
             // Output info string
             std::cout << "info depth " << depth
+                      << " seldepth " << depth // Using current_depth as seldepth for now
                       << " score cp " << current_best_score
                       << " time " << duration
                       << " nodes " << nodes_searched

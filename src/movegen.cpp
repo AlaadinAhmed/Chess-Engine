@@ -8,6 +8,7 @@
 #include <cstdint>
 #include "globals.hpp"
 #include "fen.hpp"
+#include "print.hpp"
 
 int history_ply = 0;
 UndoInfo history[256];
@@ -16,162 +17,17 @@ extern ZobristKeys zkey;
 
 void move_piece(Position &pos, int from, int to, Pieces piece);
 
-uint64_t peekAttackedSquares(Position pos) {
-  uint64_t attackedSquares = 0ULL;
-
-  for (int square = 0; square < 64; square++) {
-    uint64_t bitboard = setBitboard(square);
-
-    if (pos.whiteToMove) { 
-      if (pos.WhitePawns & bitboard) {
-        attackedSquares |= GetPawnAttacks(pos, square, true);
-      }
-    } else { 
-      if (pos.BlackPawns & bitboard) {
-        attackedSquares |= GetPawnAttacks(pos, square, false);
-      }
-    }
-
-    if (pos.whiteToMove) { 
-      if (pos.WhiteKnights & bitboard) {
-        attackedSquares |= knightAttacks[square];
-      }
-    } else { 
-      if (pos.BlackKnights & bitboard) {
-        attackedSquares |= knightAttacks[square];
-      }
-    }
-
-    if (pos.whiteToMove) { 
-      if (pos.WhiteBishops & bitboard) {
-        attackedSquares |= get_bishop_attacks(square, pos.occupiedSquares);
-      }
-    } else { 
-      if (pos.BlackBishops & bitboard) {
-        attackedSquares |= get_bishop_attacks(square, pos.occupiedSquares);
-      }
-    }
-
-    if (pos.whiteToMove) { 
-      if (pos.WhiteRooks & bitboard) {
-        attackedSquares |= get_rook_attacks(square, pos.occupiedSquares);
-      }
-    } else { 
-      if (pos.BlackRooks & bitboard) {
-        attackedSquares |= get_rook_attacks(square, pos.occupiedSquares);
-      }
-    }
-
-    if (pos.whiteToMove) { 
-      if (pos.WhiteQueen & bitboard) {
-        attackedSquares |= get_bishop_attacks(square, pos.occupiedSquares) |
-                           get_rook_attacks(square, pos.occupiedSquares);
-      }
-    } else { 
-      if (pos.BlackQueen & bitboard) {
-        attackedSquares |= get_bishop_attacks(square, pos.occupiedSquares) |
-                           get_rook_attacks(square, pos.occupiedSquares);
-      }
-    }
-
-    if (pos.whiteToMove) { 
-      if (pos.WhiteKing & bitboard) {
-        attackedSquares |= kingAttacks[square];
-      }
-    } else { 
-      if (pos.BlackKing & bitboard) {
-        attackedSquares |= kingAttacks[square];
-      }
-    }
-  }
-
-  return attackedSquares;
-}
-
-uint64_t GetPawnMoves(const Position &pos, int square, bool by_white) {
-  uint64_t moves = 0ULL;
-  uint64_t pawnBitboard = 1ULL << square;
-
-  if (by_white) {
-    if ((pawnBitboard << 8) & pos.emptySquares) {
-      moves |= (pawnBitboard << 8);
-
-      if ((square >= 8 && square <= 15) &&
-          ((pawnBitboard << 16) & pos.emptySquares)) {
-        moves |= (pawnBitboard << 16);
-      }
-    }
-
-    if ((square % 8) != 0 &&
-        ((pawnBitboard << 7) & pos.BlackoccupiedSquares)) {
-      moves |= (pawnBitboard << 7);
-    }
-
-    if ((square % 8) != 7 &&
-        ((pawnBitboard << 9) & pos.BlackoccupiedSquares)) {
-      moves |= (pawnBitboard << 9);
-    }
-
-    // En passant
-    if (pos.enPassant != 0) {
-        if (((pawnBitboard << 7) & (1ULL << pos.enPassant)) && ((square % 8) != 0)) {
-            moves |= (pawnBitboard << 7);
-        }
-        if (((pawnBitboard << 9) & (1ULL << pos.enPassant)) && ((square % 8) != 7)) {
-            moves |= (pawnBitboard << 9);
-        }
-    }
-  } else { // Black to move
-    if ((pawnBitboard >> 8) & pos.emptySquares) {
-      moves |= (pawnBitboard >> 8);
-
-      if ((square >= 48 && square <= 55) &&
-          ((pawnBitboard >> 16) & pos.emptySquares)) {
-        moves |= (pawnBitboard >> 16);
-      }
-    }
-
-    if ((square % 8) != 0 &&
-        ((pawnBitboard >> 9) & pos.WhiteoccupiedSquares)) {
-      moves |= (pawnBitboard >> 9);
-    }
-
-    if ((square % 8) != 7 &&
-        ((pawnBitboard >> 7) & pos.WhiteoccupiedSquares)) {
-      moves |= (pawnBitboard >> 7);
-    }
-
-    // En passant
-    if (pos.enPassant != 0) {
-        if (((pawnBitboard >> 9) & (1ULL << pos.enPassant)) && ((square % 8) != 0)) {
-            moves |= (pawnBitboard >> 9);
-        }
-        if (((pawnBitboard >> 7) & (1ULL << pos.enPassant)) && ((square % 8) != 7)) {
-            moves |= (pawnBitboard >> 7);
-        }
-    }
-  }
-  return moves;
-}
-
-uint64_t GetKingMoves(const Position &pos) {
-    uint64_t moves = 0;
-    int king_square;
-    if (pos.whiteToMove) {
-        king_square = __builtin_ctzll(pos.WhiteKing);
-        moves = kingAttacks[king_square] & ~pos.WhiteoccupiedSquares;
+uint64_t GetPawnAttacks(const Position &pos, int square, bool by_white) {
+    uint64_t attacks = 0;
+    uint64_t pawn = 1ULL << square;
+    if (by_white) {
+        attacks |= (pawn << 7) & ~0x0101010101010101; // Not on H file
+        attacks |= (pawn << 9) & ~0x8080808080808080; // Not on A file
     } else {
-        king_square = __builtin_ctzll(pos.BlackKing);
-        moves = kingAttacks[king_square] & ~pos.BlackoccupiedSquares;
+        attacks |= (pawn >> 7) & ~0x8080808080808080; // Not on A file
+        attacks |= (pawn >> 9) & ~0x0101010101010101; // Not on H file
     }
-    return moves;
-}
-
-uint64_t GetKnightAttacks(const Position &pos, int square) {
-    if (pos.whiteToMove)
-        return knightAttacks[square] & ~pos.WhiteoccupiedSquares;
-    else
-        return knightAttacks[square] & ~pos.BlackoccupiedSquares;
+    return attacks;
 }
 
 bool is_square_attacked(const Position &pos, int square, bool by_white) {
@@ -203,97 +59,108 @@ bool is_square_attacked(const Position &pos, int square, bool by_white) {
     return false;
 }
 
-void undomove(Position &pos, Move m) {
-    history_ply--;
-    pos.whiteToMove = history[history_ply].side;
+uint64_t GetPawnMoves(const Position &pos, int square, bool by_white) {
+  uint64_t moves = 0ULL;
+  uint64_t pawnBitboard = 1ULL << square;
 
-    pos.enPassant = history[history_ply].oldEnPassant;
-    pos.castelingRights = history[history_ply].oldCastelingRights;
-    pos.move50rule = history[history_ply].oldHalfMove;
-    currentHashKey = history[history_ply].oldHashKey;
+  if (debug_mode) { printf("DEBUG: GetPawnMoves for square %d, by_white %d\n", square, by_white); }
+  if (debug_mode) { printf("DEBUG: pos.emptySquares: %llu\n", pos.emptySquares); }
+  if (debug_mode) { printf("DEBUG: pos.BlackoccupiedSquares: %llu\n", pos.BlackoccupiedSquares); }
+  if (debug_mode) { printf("DEBUG: pos.WhiteoccupiedSquares: %llu\n", pos.WhiteoccupiedSquares); }
 
-    Pieces moved_piece = get_piece_at(pos, m.to);
-    Pieces captured_piece = history[history_ply].oldCapturedPiece;
+  if (by_white) {
+    if (get_piece_at(pos, square + 8) == NO_PIECE) { // Single push
+      moves |= (pawnBitboard << 8);
+      if (debug_mode) { printf("DEBUG: moves after single push: %llu\n", moves); }
 
-    uint64_t from_to_bb = (1ULL << m.from) | (1ULL << m.to);
-
-    switch (moved_piece) {
-        case W_PAWN: pos.WhitePawns ^= from_to_bb; break;
-        case W_KNIGHT: pos.WhiteKnights ^= from_to_bb; break;
-        case W_BISHOP: pos.WhiteBishops ^= from_to_bb; break;
-        case W_ROOK: pos.WhiteRooks ^= from_to_bb; break;
-        case W_QUEEN: pos.WhiteQueen ^= from_to_bb; break;
-        case W_KING: pos.WhiteKing ^= from_to_bb; break;
-        case B_PAWN: pos.BlackPawns ^= from_to_bb; break;
-        case B_KNIGHT: pos.BlackKnights ^= from_to_bb; break;
-        case B_BISHOP: pos.BlackBishops ^= from_to_bb; break;
-        case B_ROOK: pos.BlackRooks ^= from_to_bb; break;
-        case B_QUEEN: pos.BlackQueen ^= from_to_bb; break;
-        case B_KING: pos.BlackKing ^= from_to_bb; break;
-        case NO_PIECE: break;
+      if ((square >= 8 && square <= 15) && // On 2nd rank
+          (get_piece_at(pos, square + 16) == NO_PIECE)) { // Double push
+        moves |= (pawnBitboard << 16);
+        if (debug_mode) { printf("DEBUG: moves after double push: %llu\n", moves); }
+      }
     }
 
-    if (history[history_ply].isCastling) {
-        if (moved_piece == W_KING) {
-            move_piece(pos, history[history_ply].castlingRookTo, history[history_ply].castlingRookFrom, W_ROOK);
-        } else { // B_KING
-            move_piece(pos, history[history_ply].castlingRookTo, history[history_ply].castlingRookFrom, B_ROOK);
+    if ((square % 8) != 0 &&
+        ((pawnBitboard << 7) & pos.BlackoccupiedSquares)) {
+      moves |= (pawnBitboard << 7);
+      if (debug_mode) { printf("DEBUG: moves after left capture: %llu\n", moves); }
+    }
+
+    if ((square % 8) != 7 &&
+        ((pawnBitboard << 9) & pos.BlackoccupiedSquares)) {
+      moves |= (pawnBitboard << 9);
+      if (debug_mode) { printf("DEBUG: moves after right capture: %llu\n", moves); }
+    }
+
+    // En passant
+    if (pos.enPassant != 0) {
+        if (((pawnBitboard << 7) & (1ULL << pos.enPassant)) && ((square % 8) != 0)) {
+            moves |= (pawnBitboard << 7);
+            if (debug_mode) { printf("DEBUG: moves after en passant left: %llu\n", moves); }
+        }
+        if (((pawnBitboard << 9) & (1ULL << pos.enPassant)) && ((square % 8) != 7)) {
+            moves |= (pawnBitboard << 9);
+            if (debug_mode) { printf("DEBUG: moves after en passant right: %llu\n", moves); }
         }
     }
+  } else { // Black to move
+    if (get_piece_at(pos, square - 8) == NO_PIECE) { // Single push
+      moves |= (pawnBitboard >> 8);
+      if (debug_mode) { printf("DEBUG: moves after single push: %llu\n", moves); }
 
-    if (captured_piece != NO_PIECE) {
-        uint64_t captured_bb;
-        if (history[history_ply].isEnPassant) { // En passant capture
-            captured_bb = 1ULL << history[history_ply].enPassantCapturedPawnSquare;
-            if (moved_piece == W_PAWN) { // White pawn captured black pawn
-                pos.BlackPawns |= captured_bb;
-            } else { // Black pawn captured white pawn
-                pos.WhitePawns |= captured_bb;
-            }
-        } else { // Regular capture
-            captured_bb = 1ULL << m.to;
-            switch (captured_piece) {
-                case W_PAWN: pos.WhitePawns |= captured_bb; break;
-                case W_KNIGHT: pos.WhiteKnights |= captured_bb; break;
-                case W_BISHOP: pos.WhiteBishops |= captured_bb; break;
-                case W_ROOK: pos.WhiteRooks |= captured_bb; break;
-                case W_QUEEN: pos.WhiteQueen |= captured_bb; break;
-                case W_KING: pos.WhiteKing |= captured_bb; break;
-                case B_PAWN: pos.BlackPawns |= captured_bb; break;
-                case B_KNIGHT: pos.BlackKnights |= captured_bb; break;
-                case B_BISHOP: pos.BlackBishops |= captured_bb; break;
-                case B_ROOK: pos.BlackRooks |= captured_bb; break;
-                case B_QUEEN: pos.BlackQueen |= captured_bb; break;
-                case B_KING: pos.BlackKing |= captured_bb; break;
-                case NO_PIECE: break;
-            }
-        }
+      if ((square >= 48 && square <= 55) && // On 7th rank
+          (get_piece_at(pos, square - 16) == NO_PIECE)) { // Double push
+        moves |= (pawnBitboard >> 16);
+        if (debug_mode) { printf("DEBUG: moves after double push: %llu\n", moves); }
+      }
     }
 
-    pos.BlackoccupiedSquares = pos.BlackPawns | pos.BlackKnights | pos.BlackBishops | pos.BlackRooks | pos.BlackQueen | pos.BlackKing;
-    pos.WhiteoccupiedSquares = pos.WhitePawns | pos.WhiteKnights | pos.WhiteBishops | pos.WhiteRooks | pos.WhiteQueen | pos.WhiteKing;
-    pos.occupiedSquares = pos.BlackoccupiedSquares | pos.WhiteoccupiedSquares;
-    pos.emptySquares = ~pos.occupiedSquares;
+    if ((square % 8) != 0 &&
+        ((pawnBitboard >> 9) & pos.WhiteoccupiedSquares)) {
+      moves |= (pawnBitboard >> 9);
+      if (debug_mode) { printf("DEBUG: moves after left capture: %llu\n", moves); }
+    }
+
+    if ((square % 8) != 7 &&
+        ((pawnBitboard >> 7) & pos.WhiteoccupiedSquares)) {
+      moves |= (pawnBitboard >> 7);
+      if (debug_mode) { printf("DEBUG: moves after right capture: %llu\n", moves); }
+    }
+
+    // En passant
+    if (pos.enPassant != 0) {
+        if (((pawnBitboard >> 9) & (1ULL << pos.enPassant)) && ((square % 8) != 0)) {
+            moves |= (pawnBitboard >> 9);
+            if (debug_mode) { printf("DEBUG: moves after en passant left: %llu\n", moves); }
+        }
+        if (((pawnBitboard >> 7) & (1ULL << pos.enPassant)) && ((square % 8) != 7)) {
+            moves |= (pawnBitboard >> 7);
+            if (debug_mode) { printf("DEBUG: moves after en passant right: %llu\n", moves); }
+        }
+    }
+  }
+  return moves;
 }
 
-uint64_t GetPawnAttacks(const Position &pos, int square, bool by_white) {
-    uint64_t attacks = 0;
-    uint64_t pawn = 1ULL << square;
-    if (by_white) {
-        attacks |= (pawn << 7) & ~0x0101010101010101; // Not on H file
-        attacks |= (pawn << 9) & ~0x8080808080808080; // Not on A file
+uint64_t GetKingMoves(const Position &pos) {
+    uint64_t moves = 0;
+    int king_square;
+    if (pos.whiteToMove) {
+        king_square = __builtin_ctzll(pos.WhiteKing);
+        moves = kingAttacks[king_square] & ~pos.WhiteoccupiedSquares;
     } else {
-        attacks |= (pawn >> 7) & ~0x8080808080808080; // Not on A file
-        attacks |= (pawn >> 9) & ~0x0101010101010101; // Not on H file
+        king_square = __builtin_ctzll(pos.BlackKing);
+        moves = kingAttacks[king_square] & ~pos.BlackoccupiedSquares;
     }
-    return attacks;
+    return moves;
 }
 
-uint64_t GetQueenAttacks(const Position &pos, int square) {
-  return get_rook_attacks(square, pos.occupiedSquares) |
-         get_bishop_attacks(square, pos.occupiedSquares);
+uint64_t GetKnightAttacks(const Position &pos, int square) {
+    if (pos.whiteToMove)
+        return knightAttacks[square] & ~pos.WhiteoccupiedSquares;
+    else
+        return knightAttacks[square] & ~pos.BlackoccupiedSquares;
 }
-
 
 
 
@@ -352,7 +219,7 @@ void move_piece(Position &pos, int from, int to, Pieces piece) {
 }
 
 void makemove(Position &pos, Move m) {
-    history[history_ply].oldHashKey = currentHashKey;
+    history[history_ply].oldHashKey = pos.zobrist_key;
     history[history_ply].oldCastelingRights = pos.castelingRights;
     history[history_ply].oldEnPassant = pos.enPassant;
     history[history_ply].oldHalfMove = pos.move50rule;
@@ -360,6 +227,8 @@ void makemove(Position &pos, Move m) {
 
     Pieces moved_piece = get_piece_at(pos, m.from);
     Pieces captured_piece = get_piece_at(pos, m.to);
+
+    history[history_ply].movedPiece = moved_piece;
 
     history[history_ply].isEnPassant = false; // Default to false
     if ((moved_piece == W_PAWN || moved_piece == B_PAWN) && (m.to == pos.enPassant)) { // En passant capture
@@ -374,13 +243,12 @@ void makemove(Position &pos, Move m) {
     } else {
         history[history_ply].oldCapturedPiece = captured_piece;
     }
-    history_ply++;
 
-    currentHashKey ^= zkey.pieceKeys[moved_piece][m.from];
-    currentHashKey ^= zkey.pieceKeys[moved_piece][m.to];
+    pos.zobrist_key ^= zkey.pieceKeys[moved_piece][m.from];
+    pos.zobrist_key ^= zkey.pieceKeys[moved_piece][m.to];
 
     if (captured_piece != NO_PIECE) {
-        currentHashKey ^= zkey.pieceKeys[captured_piece][m.to];
+        pos.zobrist_key ^= zkey.pieceKeys[captured_piece][m.to];
         uint64_t to_bb = 1ULL << m.to;
         switch (captured_piece) {
             case W_PAWN: pos.WhitePawns &= ~to_bb; break;
@@ -402,11 +270,11 @@ void makemove(Position &pos, Move m) {
         if (moved_piece == W_PAWN) { // White pawn capturing black pawn en passant
             captured_pawn_bb = 1ULL << (m.to - 8);
             pos.BlackPawns &= ~captured_pawn_bb;
-            currentHashKey ^= zkey.pieceKeys[B_PAWN][m.to - 8];
+            pos.zobrist_key ^= zkey.pieceKeys[B_PAWN][m.to - 8];
         } else { // Black pawn capturing white pawn en passant
             captured_pawn_bb = 1ULL << (m.to + 8);
             pos.WhitePawns &= ~captured_pawn_bb;
-            currentHashKey ^= zkey.pieceKeys[W_PAWN][m.to + 8];
+            pos.zobrist_key ^= zkey.pieceKeys[W_PAWN][m.to + 8];
         }
     }
 
@@ -417,15 +285,15 @@ void makemove(Position &pos, Move m) {
     if (moved_piece == W_KING && m.from == 4) {
         if (m.to == 6) { // Kingside castling
             move_piece(pos, 7, 5, W_ROOK);
-            currentHashKey ^= zkey.pieceKeys[W_ROOK][7];
-            currentHashKey ^= zkey.pieceKeys[W_ROOK][5];
+            pos.zobrist_key ^= zkey.pieceKeys[W_ROOK][7];
+            pos.zobrist_key ^= zkey.pieceKeys[W_ROOK][5];
             history[history_ply].isCastling = true;
             history[history_ply].castlingRookFrom = 7;
             history[history_ply].castlingRookTo = 5;
         } else if (m.to == 2) { // Queenside castling
             move_piece(pos, 0, 3, W_ROOK);
-            currentHashKey ^= zkey.pieceKeys[W_ROOK][0];
-            currentHashKey ^= zkey.pieceKeys[W_ROOK][3];
+            pos.zobrist_key ^= zkey.pieceKeys[W_ROOK][0];
+            pos.zobrist_key ^= zkey.pieceKeys[W_ROOK][3];
             history[history_ply].isCastling = true;
             history[history_ply].castlingRookFrom = 0;
             history[history_ply].castlingRookTo = 3;
@@ -433,22 +301,22 @@ void makemove(Position &pos, Move m) {
     } else if (moved_piece == B_KING && m.from == 60) {
         if (m.to == 62) { // Kingside castling
             move_piece(pos, 63, 61, B_ROOK);
-            currentHashKey ^= zkey.pieceKeys[B_ROOK][63];
-            currentHashKey ^= zkey.pieceKeys[B_ROOK][61];
+            pos.zobrist_key ^= zkey.pieceKeys[B_ROOK][63];
+            pos.zobrist_key ^= zkey.pieceKeys[B_ROOK][61];
             history[history_ply].isCastling = true;
             history[history_ply].castlingRookFrom = 63;
             history[history_ply].castlingRookTo = 61;
         } else if (m.to == 58) { // Queenside castling
             move_piece(pos, 56, 59, B_ROOK);
-            currentHashKey ^= zkey.pieceKeys[B_ROOK][56];
-            currentHashKey ^= zkey.pieceKeys[B_ROOK][59];
+            pos.zobrist_key ^= zkey.pieceKeys[B_ROOK][56];
+            pos.zobrist_key ^= zkey.pieceKeys[B_ROOK][59];
             history[history_ply].isCastling = true;
             history[history_ply].castlingRookFrom = 56;
             history[history_ply].castlingRookTo = 59;
         }
     }
 
-    currentHashKey ^= zkey.sideKey;
+    pos.zobrist_key ^= zkey.sideKey;
 
     uint8_t old_castling_rights = pos.castelingRights;
     if (moved_piece == W_KING) {
@@ -471,12 +339,12 @@ void makemove(Position &pos, Move m) {
         }
     }
     if (old_castling_rights != pos.castelingRights) {
-        currentHashKey ^= zkey.castelingKeys[old_castling_rights];
-        currentHashKey ^= zkey.castelingKeys[pos.castelingRights];
+        pos.zobrist_key ^= zkey.castelingKeys[old_castling_rights];
+        pos.zobrist_key ^= zkey.castelingKeys[pos.castelingRights];
     }
 
     if (pos.enPassant != 0) {
-        currentHashKey ^= zkey.epKeys[pos.enPassant / 8];
+        pos.zobrist_key ^= zkey.epKeys[pos.enPassant % 8];
     }
     pos.enPassant = 0;
     if (moved_piece == W_PAWN) {
@@ -489,16 +357,80 @@ void makemove(Position &pos, Move m) {
         }
     }
     if (pos.enPassant != 0) {
-        currentHashKey ^= zkey.epKeys[pos.enPassant / 8];
+        pos.zobrist_key ^= zkey.epKeys[pos.enPassant % 8];
     }
-
-
     pos.BlackoccupiedSquares = pos.BlackPawns | pos.BlackKnights | pos.BlackBishops | pos.BlackRooks | pos.BlackQueen | pos.BlackKing;
     pos.WhiteoccupiedSquares = pos.WhitePawns | pos.WhiteKnights | pos.WhiteBishops | pos.WhiteRooks | pos.WhiteQueen | pos.WhiteKing;
     pos.occupiedSquares = pos.BlackoccupiedSquares | pos.WhiteoccupiedSquares;
     pos.emptySquares = ~pos.occupiedSquares;
 
+    history_ply++;
     pos.whiteToMove = !pos.whiteToMove;
+}
+
+void undomove(Position &pos, Move m) {
+    history_ply--;
+
+    pos.whiteToMove = history[history_ply].side;
+    pos.castelingRights = history[history_ply].oldCastelingRights;
+    pos.enPassant = history[history_ply].oldEnPassant;
+    pos.move50rule = history[history_ply].oldHalfMove;
+    pos.zobrist_key = history[history_ply].oldHashKey;
+
+    Pieces moved_piece = history[history_ply].movedPiece;
+    Pieces captured_piece = history[history_ply].oldCapturedPiece;
+
+    // Move back the moved piece
+    move_piece(pos, m.to, m.from, moved_piece);
+
+    // Restore captured piece if any
+    if (captured_piece != NO_PIECE) {
+        uint64_t to_bb = 1ULL << m.to;
+        switch (captured_piece) {
+            case W_PAWN: pos.WhitePawns |= to_bb; break;
+            case W_KNIGHT: pos.WhiteKnights |= to_bb; break;
+            case W_BISHOP: pos.WhiteBishops |= to_bb; break;
+            case W_ROOK: pos.WhiteRooks |= to_bb; break;
+            case W_QUEEN: pos.WhiteQueen |= to_bb; break;
+            case W_KING: pos.WhiteKing |= to_bb; break;
+            case B_PAWN: pos.BlackPawns |= to_bb; break;
+            case B_KNIGHT: pos.BlackKnights |= to_bb; break;
+            case B_BISHOP: pos.BlackBishops |= to_bb; break;
+            case B_ROOK: pos.BlackRooks |= to_bb; break;
+            case B_QUEEN: pos.BlackQueen |= to_bb; break;
+            case B_KING: pos.BlackKing |= to_bb; break;
+            case NO_PIECE: break;
+        }
+    } else if (history[history_ply].isEnPassant) { // En passant capture
+        uint64_t captured_pawn_bb = 1ULL << history[history_ply].enPassantCapturedPawnSquare;
+        if (moved_piece == W_PAWN) { // White pawn captured black pawn en passant
+            pos.BlackPawns |= captured_pawn_bb;
+        } else { // Black pawn captured white pawn en passant
+            pos.WhitePawns |= captured_pawn_bb;
+        }
+    }
+
+    // Handle castling rook move
+    if (history[history_ply].isCastling) {
+        if (moved_piece == W_KING) {
+            if (m.to == 6) { // Kingside castling
+                move_piece(pos, 5, 7, W_ROOK);
+            } else if (m.to == 2) { // Queenside castling
+                move_piece(pos, 3, 0, W_ROOK);
+            }
+        } else if (moved_piece == B_KING) {
+            if (m.to == 62) { // Kingside castling
+                move_piece(pos, 61, 63, B_ROOK);
+            } else if (m.to == 58) { // Queenside castling
+                move_piece(pos, 59, 56, B_ROOK);
+            }
+        }
+    }
+
+    pos.BlackoccupiedSquares = pos.BlackPawns | pos.BlackKnights | pos.BlackBishops | pos.BlackRooks | pos.BlackQueen | pos.BlackKing;
+    pos.WhiteoccupiedSquares = pos.WhitePawns | pos.WhiteKnights | pos.WhiteBishops | pos.WhiteRooks | pos.WhiteQueen | pos.WhiteKing;
+    pos.occupiedSquares = pos.BlackoccupiedSquares | pos.WhiteoccupiedSquares;
+    pos.emptySquares = ~pos.occupiedSquares;
 }
 
 void generate_moves(Position &pos, MoveList &move_list) {
@@ -530,8 +462,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
 
@@ -539,8 +471,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
 
@@ -548,8 +480,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
 
@@ -557,8 +489,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
                 } else {
@@ -567,9 +499,10 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
+
                     undomove(temp_pos, current_move);
                 }
                 temp_moves &= temp_moves - 1;
@@ -583,16 +516,16 @@ void generate_moves(Position &pos, MoveList &move_list) {
         if (debug_mode) { printf("DEBUG: Generating White Knight moves\n"); }
         while (pieces) {
             int from = __builtin_ctzll(pieces);
-            uint64_t moves = GetKnightAttacks(pos, from) & ~pos.WhiteoccupiedSquares;
-            while (moves) {
-                int to = __builtin_ctzll(moves);
-                current_move = {from, to};
-                temp_pos = pos;
-                makemove(temp_pos, current_move);
-                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
-                    move_list.moves[move_list.count++] = current_move;
-                }
-                undomove(temp_pos, current_move);
+                            uint64_t moves = GetKnightAttacks(pos, from) & ~pos.WhiteoccupiedSquares;
+                            while (moves) {
+                                int to = __builtin_ctzll(moves);
+                                current_move = {from, to};
+                                temp_pos = pos;
+                                makemove(temp_pos, current_move);
+                                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
+                                    move_list.moves[move_list.count++] = current_move;
+                                }                undomove(temp_pos, current_move);
                 moves &= moves - 1;
             }
             pieces &= pieces - 1;
@@ -611,6 +544,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
                 if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
@@ -632,6 +566,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
                 if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
@@ -646,13 +581,14 @@ void generate_moves(Position &pos, MoveList &move_list) {
         if (debug_mode) { printf("DEBUG: Generating White Queen moves\n"); }
         while (pieces) {
             int from = __builtin_ctzll(pieces);
-            uint64_t moves = GetQueenAttacks(pos, from) & ~pos.WhiteoccupiedSquares;
+            uint64_t moves = (get_bishop_attacks(from, pos.occupiedSquares) | get_rook_attacks(from, pos.occupiedSquares)) & ~pos.WhiteoccupiedSquares;
             while (moves) {
                 int to = __builtin_ctzll(moves);
                 current_move = {from, to};
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
                 if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
@@ -667,19 +603,44 @@ void generate_moves(Position &pos, MoveList &move_list) {
         if (debug_mode) { printf("DEBUG: Generating White King moves\n"); }
         while (pieces) {
             int from = __builtin_ctzll(pieces);
-            uint64_t moves = GetKingMoves(pos) & ~pos.WhiteoccupiedSquares;
+            moves = GetKingMoves(pos);
             while (moves) {
                 int to = __builtin_ctzll(moves);
                 current_move = {from, to};
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
-                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false)) {
+                bool king_attacked = is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.WhiteKing), false);
+                if (debug_mode) { printf("DEBUG: King move %d to %d, king attacked after move: %d\n", from, to, king_attacked); }
+                if (!king_attacked) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
                 moves &= moves - 1;
             }
             pieces &= pieces - 1;
+
+            // Castling for White
+            if (!is_square_attacked(pos, from, false)) { // King not in check
+                // Kingside Castling
+                if ((pos.castelingRights & 1) && // White Kingside Castling Right
+                    !((pos.occupiedSquares >> 5) & 0x3ULL) && // f1 and g1 are empty
+                    !is_square_attacked(pos, 5, false) && // f1 not attacked
+                    !is_square_attacked(pos, 6, false)) { // g1 not attacked
+                    if (debug_mode) { printf("DEBUG: White Kingside Castling generated (e1g1)\n"); }
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
+                    move_list.moves[move_list.count++] = {from, 6}; // e1g1
+                }
+                // Queenside Castling
+                if ((pos.castelingRights & 2) && // White Queenside Castling Right
+                    !((pos.occupiedSquares >> 1) & 0x7ULL) && // b1, c1, d1 are empty
+                    !is_square_attacked(pos, 3, false) && // d1 not attacked
+                    !is_square_attacked(pos, 2, false)) { // c1 not attacked
+                    if (debug_mode) { printf("DEBUG: White Queenside Castling generated (e1c1)\n"); }
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
+                    move_list.moves[move_list.count++] = {from, 2}; // e1c1
+                }
+            }
         }
         if (debug_mode) { printf("DEBUG: Finished White King moves\n"); }
 
@@ -701,8 +662,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
 
@@ -710,8 +671,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
 
@@ -719,8 +680,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
 
@@ -728,8 +689,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
                 } else {
@@ -738,8 +699,8 @@ void generate_moves(Position &pos, MoveList &move_list) {
                     temp_pos = pos;
                     makemove(temp_pos, current_move);
                     if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                        if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                         move_list.moves[move_list.count++] = current_move;
-                        pawn_moves_count++;
                     }
                     undomove(temp_pos, current_move);
                 }
@@ -761,6 +722,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
                 if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
@@ -782,27 +744,7 @@ void generate_moves(Position &pos, MoveList &move_list) {
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
                 if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
-                    move_list.moves[move_list.count++] = current_move;
-                }
-                undomove(temp_pos, current_move);
-                moves &= moves - 1;
-            }
-            pieces &= pieces - 1;
-        }
-        if (debug_mode) { printf("DEBUG: Finished Black Bishop moves\n"); }
-
-        // Rooks
-        pieces = pos.BlackRooks;
-        if (debug_mode) { printf("DEBUG: Generating Black Rook moves\n"); }
-        while (pieces) {
-            int from = __builtin_ctzll(pieces);
-            uint64_t moves = get_rook_attacks(from, pos.occupiedSquares) & ~pos.BlackoccupiedSquares;
-            while (moves) {
-                int to = __builtin_ctzll(moves);
-                current_move = {from, to};
-                temp_pos = pos;
-                makemove(temp_pos, current_move);
-                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
@@ -817,13 +759,14 @@ void generate_moves(Position &pos, MoveList &move_list) {
         if (debug_mode) { printf("DEBUG: Generating Black Queen moves\n"); }
         while (pieces) {
             int from = __builtin_ctzll(pieces);
-            uint64_t moves = GetQueenAttacks(pos, from) & ~pos.BlackoccupiedSquares;
+            uint64_t moves = (get_rook_attacks(from, pos.occupiedSquares) | get_bishop_attacks(from, pos.occupiedSquares)) & ~pos.BlackoccupiedSquares;
             while (moves) {
                 int to = __builtin_ctzll(moves);
                 current_move = {from, to};
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
                 if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
@@ -831,28 +774,50 @@ void generate_moves(Position &pos, MoveList &move_list) {
             }
             pieces &= pieces - 1;
         }
-        if (debug_mode) { printf("DEBUG: Finished Black Queen moves\n"); }
 
         // King
         pieces = pos.BlackKing;
         if (debug_mode) { printf("DEBUG: Generating Black King moves\n"); }
         while (pieces) {
             int from = __builtin_ctzll(pieces);
-            uint64_t moves = GetKingMoves(pos) & ~pos.BlackoccupiedSquares;
+            moves = GetKingMoves(pos);
             while (moves) {
                 int to = __builtin_ctzll(moves);
                 current_move = {from, to};
                 temp_pos = pos;
                 makemove(temp_pos, current_move);
-                if (!is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true)) {
+                bool king_attacked = is_square_attacked(temp_pos, __builtin_ctzll(temp_pos.BlackKing), true);
+                if (debug_mode) { printf("DEBUG: King move %d to %d, king attacked after move: %d\n", from, to, king_attacked); }
+                if (!king_attacked) {
+                    if (debug_mode) { printf("DEBUG: Incrementing move_list.count. Current count: %d\n", move_list.count); }
                     move_list.moves[move_list.count++] = current_move;
                 }
                 undomove(temp_pos, current_move);
                 moves &= moves - 1;
             }
+
+            // Castling for Black
+            if (!is_square_attacked(pos, from, true)) { // King not in check
+                // Kingside Castling
+                if ((pos.castelingRights & 4) && // Black Kingside Castling Right
+                    !((pos.occupiedSquares >> 61) & 0x3ULL) && // f8 and g8 are empty
+                    !is_square_attacked(pos, 61, true) && // f8 not attacked
+                    !is_square_attacked(pos, 62, true)) { // g8 not attacked
+                    move_list.moves[move_list.count++] = {from, 62}; // e8g8
+                    if (debug_mode) { printf("DEBUG: Adding move: %s\n", move_to_uci({from, 62}).c_str()); } // Added debug print
+                }
+                // Queenside Castling
+                if ((pos.castelingRights & 8) && // Black Queenside Castling Right
+                    !((pos.occupiedSquares >> 57) & 0x7ULL) && // b8, c8, d8 are empty
+                    !is_square_attacked(pos, 59, true) && // d8 not attacked
+                    !is_square_attacked(pos, 58, true)) { // c8 not attacked
+                    move_list.moves[move_list.count++] = {from, 58}; // e8c8
+                    if (debug_mode) { printf("DEBUG: Adding move: %s\n", move_to_uci({from, 58}).c_str()); } // Added debug print
+                }
+            }
             pieces &= pieces - 1;
         }
-        if (debug_mode) { printf("DEBUG: Finished Black King moves\n"); }
+        if (debug_mode) { printf("DEBUG: Finished Black King moves\n"); } // Added debug print
     }
 }
 

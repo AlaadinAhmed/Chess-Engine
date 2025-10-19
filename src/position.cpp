@@ -1,22 +1,25 @@
 #include "position.hpp"
 #include "fen.hpp"
 #include "bitboard.hpp"
+#include "globals.hpp"
 
 Pieces get_piece_at(const Position &pos, int sq) {
     uint64_t bb = 1ULL << sq;
-    if (pos.WhitePawns & bb) return W_PAWN;
-    if (pos.WhiteKnights & bb) return W_KNIGHT;
-    if (pos.WhiteBishops & bb) return W_BISHOP;
-    if (pos.WhiteRooks & bb) return W_ROOK;
-    if (pos.WhiteQueen & bb) return W_QUEEN;
-    if (pos.WhiteKing & bb) return W_KING;
-    if (pos.BlackPawns & bb) return B_PAWN;
-    if (pos.BlackKnights & bb) return B_KNIGHT;
-    if (pos.BlackBishops & bb) return B_BISHOP;
-    if (pos.BlackRooks & bb) return B_ROOK;
-    if (pos.BlackQueen & bb) return B_QUEEN;
-    if (pos.BlackKing & bb) return B_KING;
-    return NO_PIECE;
+    Pieces piece = NO_PIECE;
+    if (pos.WhitePawns & bb) piece = W_PAWN;
+    else if (pos.WhiteKnights & bb) piece = W_KNIGHT;
+    else if (pos.WhiteBishops & bb) piece = W_BISHOP;
+    else if (pos.WhiteRooks & bb) piece = W_ROOK;
+    else if (pos.WhiteQueen & bb) piece = W_QUEEN;
+    else if (pos.WhiteKing & bb) piece = W_KING;
+    else if (pos.BlackPawns & bb) piece = B_PAWN;
+    else if (pos.BlackKnights & bb) piece = B_KNIGHT;
+    else if (pos.BlackBishops & bb) piece = B_BISHOP;
+    else if (pos.BlackRooks & bb) piece = B_ROOK;
+    else if (pos.BlackQueen & bb) piece = B_QUEEN;
+    else if (pos.BlackKing & bb) piece = B_KING;
+
+    return piece;
 }
 
 void Position::setStartingPosition() {
