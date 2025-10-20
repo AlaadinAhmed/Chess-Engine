@@ -2,7 +2,9 @@
 #include "search.hpp"
 #include "utils.hpp"
 
-bool searching = false;
+#include <atomic>
+
+std::atomic<bool> searching = false;
 long long nodes_searched = 0;
 #include "eval.hpp"
 #include "movegen.hpp"
@@ -16,11 +18,22 @@ long long nodes_searched = 0;
 #include <mutex>
 #include <vector>
 
-int quiescence(Position &pos, int alpha, int beta) {
+int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time) {
     log_debug("Entering quiescence");
     if (!searching) {
         return 0; // Stop early if search is interrupted
     }
+
+    // Check time limit
+    if (move_time != -1 && (nodes_searched & 2047) == 0) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+        if (duration >= move_time) {
+            searching = false;
+            return 0;
+        }
+    }
+
     nodes_searched++; // Increment nodes searched
     int stand_pat = evaluate(pos);
     if (stand_pat >= beta) {
@@ -43,22 +56,25 @@ int quiescence(Position &pos, int alpha, int beta) {
             default: return 0;
         }
     };
-    // Bubble-sort like small list sort to avoid dependencies
     for (int i = 0; i < move_list.count; ++i) {
-        for (int j = i + 1; j < move_list.count; ++j) {
-            Pieces cap_i = get_piece_at(pos, move_list.moves[i].to);
-            Pieces cap_j = get_piece_at(pos, move_list.moves[j].to);
-            int score_i = piece_value(cap_i);
-            int score_j = piece_value(cap_j);
-            if (score_j > score_i) {
-                Move tmp = move_list.moves[i];
-                move_list.moves[i] = move_list.moves[j];
-                move_list.moves[j] = tmp;
-            }
-        }
+        Pieces victim = get_piece_at(pos, move_list.moves[i].to);
+        Pieces aggressor = get_piece_at(pos, move_list.moves[i].from);
+        move_list.moves[i].score = piece_value(victim) - piece_value(aggressor);
     }
 
     for (int i = 0; i < move_list.count; i++) {
+        // Find best move
+        int best_idx = i;
+        for (int j = i + 1; j < move_list.count; j++) {
+            if (move_list.moves[j].score > move_list.moves[best_idx].score) {
+                best_idx = j;
+            }
+        }
+        // Swap
+        Move tmp = move_list.moves[i];
+        move_list.moves[i] = move_list.moves[best_idx];
+        move_list.moves[best_idx] = tmp;
+
         makemove(pos, move_list.moves[i]);
         // Skip illegal captures that leave own king in check
         bool mover_is_white = !pos.whiteToMove;
@@ -67,7 +83,7 @@ int quiescence(Position &pos, int alpha, int beta) {
             undomove(pos, move_list.moves[i]);
             continue;
         }
-        int score = -quiescence(pos, -beta, -alpha);
+        int score = -quiescence(pos, -beta, -alpha, start_time, move_time);
         undomove(pos, move_list.moves[i]);
         if (score >= beta) {
             return beta;
@@ -79,12 +95,51 @@ int quiescence(Position &pos, int alpha, int beta) {
     return alpha;
 }
 
-int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move) {
+void score_moves(MoveList &move_list, Position &pos, Move tt_move) {
+    auto piece_value = [&](Pieces p){
+        switch(p){
+            case W_PAWN: case B_PAWN: return 100; 
+            case W_KNIGHT: case B_KNIGHT: return 300;
+            case W_BISHOP: case B_BISHOP: return 320;
+            case W_ROOK: case B_ROOK: return 500;
+            case W_QUEEN: case B_QUEEN: return 900;
+            default: return 0;
+        }
+    };
+
+    for (int i = 0; i < move_list.count; i++) {
+        if (move_list.moves[i].from == tt_move.from && move_list.moves[i].to == tt_move.to) {
+            move_list.moves[i].score = 1000000; // TT move gets highest score
+            continue;
+        }
+        Pieces victim = get_piece_at(pos, move_list.moves[i].to);
+        if (victim != NO_PIECE) { // It's a capture
+            Pieces aggressor = get_piece_at(pos, move_list.moves[i].from);
+            move_list.moves[i].score = piece_value(victim) - piece_value(aggressor) + 100000; // MVV-LVA
+        } else {
+            // Quiet move scoring can be added here (e.g., history heuristic)
+            move_list.moves[i].score = 0;
+        }
+    }
+}
+
+int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time) {
     log_debug("Entering alpha_beta_search function (current_depth " + std::to_string(current_depth) + ", max_depth " + std::to_string(max_depth) + ")");
 
     if (!searching) {
         return 0;
     }
+    
+    // Check time limit
+    if (move_time != -1 && (nodes_searched & 2047) == 0) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+        if (duration >= move_time) {
+            searching = false;
+            return 0;
+        }
+    }
+
     nodes_searched++; // Increment nodes searched
     bool found;
     TTEntry *entry = tt.probe(pos.zobrist_key, found);
@@ -107,22 +162,14 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
     }
 
     if (current_depth == 0) {
-        return quiescence(pos, alpha, beta);
+        return quiescence(pos, alpha, beta, start_time, move_time);
     }
 
     MoveList move_list;
     generate_moves(pos, move_list);
-    // Put TT move first if available and non-zero
-    if (found && (entry->best_move.from != 0 || entry->best_move.to != 0)) {
-        for (int i = 0; i < move_list.count; ++i) {
-            if (move_list.moves[i].from == entry->best_move.from && move_list.moves[i].to == entry->best_move.to) {
-                Move tmp = move_list.moves[0];
-                move_list.moves[0] = move_list.moves[i];
-                move_list.moves[i] = tmp;
-                break;
-            }
-        }
-    }
+    
+    Move tt_move = (found) ? entry->best_move : Move{};
+    score_moves(move_list, pos, tt_move);
 
     HashFlag flag = HASH_FLAG_ALPHA;
 
@@ -141,34 +188,46 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
 
     log_debug("Found " + std::to_string(move_list.count) + " moves.");
     for (int i = 0; i < move_list.count; i++) {
-        log_debug("Searching move: " + move_to_uci(move_list.moves[i]));
-        makemove(pos, move_list.moves[i]);
+        // Find best move
+        int best_idx = i;
+        for (int j = i + 1; j < move_list.count; j++) {
+            if (move_list.moves[j].score > move_list.moves[best_idx].score) {
+                best_idx = j;
+            }
+        }
+        // Swap
+        Move current_move = move_list.moves[best_idx];
+        move_list.moves[best_idx] = move_list.moves[i];
+        move_list.moves[i] = current_move;
+
+        log_debug("Searching move: " + move_to_uci(current_move));
+        makemove(pos, current_move);
         // Skip illegal moves that leave own king in check
         bool mover_is_white = !pos.whiteToMove;
         int king_sq = mover_is_white ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing);
         if (is_square_attacked(pos, king_sq, !mover_is_white)) {
-            undomove(pos, move_list.moves[i]);
+            undomove(pos, current_move);
             continue;
         }
         // If this is the first legal move found, initialize local_best_move
         if (!found_legal_move) {
-            local_best_move = move_list.moves[i];
+            local_best_move = current_move;
             found_legal_move = true;
         }
         Move temp_best_move; // Temporary best move for recursive calls
-        int score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move);
-        log_debug("Undoing move: " + move_to_uci(move_list.moves[i]));
-        undomove(pos, move_list.moves[i]);
+        int score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time);
+        log_debug("Undoing move: " + move_to_uci(current_move));
+        undomove(pos, current_move);
         if (score > best_score) {
             best_score = score;
-            local_best_move = move_list.moves[i];
+            local_best_move = current_move;
         }
         if (best_score > alpha) {
             alpha = best_score;
             flag = HASH_FLAG_EXACT;
         }
         if (alpha >= beta) {
-            tt.save(pos.zobrist_key, current_depth, HASH_FLAG_BETA, beta, move_list.moves[i]); // Save the move that caused beta cutoff
+            tt.save(pos.zobrist_key, current_depth, HASH_FLAG_BETA, beta, current_move); // Save the move that caused beta cutoff
             best_move = local_best_move; // Assign the local best move before returning
             return beta;
         }
@@ -192,11 +251,12 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
     nodes_searched = 0; // Reset nodes searched for each new search
 
     for (int depth = 1; depth <= max_depth; ++depth) {
+        log_debug("Starting search for depth " + std::to_string(depth) + ", searching is " + (searching ? "true" : "false"));
         if (!searching) break; // Stop iterative deepening if search is interrupted
 
         Move iteration_best_move;
         history_ply = 0; // ensure clean state per iteration
-        int iteration_score = alpha_beta_search(pos, depth, max_depth, -1000000, 1000000, iteration_best_move);
+        int iteration_score = alpha_beta_search(pos, depth, max_depth, -1000000, 1000000, iteration_best_move, start_time, move_time);
 
         if (searching) { // Check if we are still searching (e.g., not stopped by 'stop' command)
             current_best_score = iteration_score;
@@ -248,6 +308,7 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
                 searching = false; // Time limit exceeded, stop search
             }
         } else {
+            log_debug("Stopping search because searching is false.");
             break; // Stop iterative deepening if searching is false
         }
     }
@@ -279,7 +340,7 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
             if (!searching) break;
             makemove(local, root_moves.moves[i]);
             Move tmp;
-            int score = -alpha_beta_search(local, max_depth - 1, max_depth, -1000000, 1000000, tmp);
+            int score = -alpha_beta_search(local, max_depth - 1, max_depth, -1000000, 1000000, tmp, start_time, move_time);
             undomove(local, root_moves.moves[i]);
             std::lock_guard<std::mutex> lock(mtx);
             if (score > global_best) {

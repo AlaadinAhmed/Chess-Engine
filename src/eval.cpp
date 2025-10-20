@@ -1,4 +1,5 @@
 #include "eval.hpp"
+#include "utils.hpp"
 #include "movegen.hpp"
 #include "bitboard.hpp"
 #include "magics.hpp"

@@ -8,9 +8,11 @@
 #pragma once
 
 #include "position.hpp"
+#include <chrono>
+#include <atomic>
 
 /// @brief A flag to indicate if the engine is currently in a search. Used for time management.
-extern bool searching;
+extern std::atomic<bool> searching;
 /// @brief A counter for the total number of nodes (positions) evaluated during a search.
 extern long long nodes_searched;
 
@@ -25,9 +27,11 @@ extern long long nodes_searched;
  * @param pos The position to search from.
  * @param alpha The lower bound of the search window (best score for the maximizing player).
  * @param beta The upper bound of the search window (best score for the minimizing player).
+ * @param start_time The time point when the entire search began.
+ * @param move_time The total time allocated for the move in milliseconds.
  * @return The evaluated score of the position after tactical exchanges are resolved.
  */
-int quiescence(Position &pos, int alpha, int beta);
+int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time);
 
 /**
  * @brief The core recursive alpha-beta search function (implemented with Negamax).
@@ -41,9 +45,11 @@ int quiescence(Position &pos, int alpha, int beta);
  * @param alpha The lower bound of the search window.
  * @param beta The upper bound of the search window.
  * @param best_move Output parameter to store the best move found at this node.
+ * @param start_time The time point when the entire search began.
+ * @param move_time The total time allocated for the move in milliseconds.
  * @return The score of the position from the perspective of the side to move.
  */
-int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move);
+int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time);
 
 /**
  * @brief Entry point for a single-threaded search.

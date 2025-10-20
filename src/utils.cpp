@@ -30,6 +30,10 @@ std::string move_to_uci(Move move) {
 
 void log_debug(const std::string& message) {
     if (debug_mode) {
+        std::ofstream log_file("debug.log", std::ios_base::app);
+        if (log_file.is_open()) {
+            log_file << message << std::endl;
+        }
         std::cout << "info string Debug: " << message << std::endl;
     }
 }
