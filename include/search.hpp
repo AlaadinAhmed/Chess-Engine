@@ -15,6 +15,8 @@
 extern std::atomic<bool> searching;
 /// @brief A counter for the total number of nodes (positions) evaluated during a search.
 extern long long nodes_searched;
+/// @brief The maximum selective depth reached during quiescence search.
+extern int seldepth;
 
 /**
  * @brief Performs a quiescence search to stabilize the evaluation.
@@ -29,9 +31,10 @@ extern long long nodes_searched;
  * @param beta The upper bound of the search window (best score for the minimizing player).
  * @param start_time The time point when the entire search began.
  * @param move_time The total time allocated for the move in milliseconds.
+ * @param ply The current ply from the root (for seldepth tracking).
  * @return The evaluated score of the position after tactical exchanges are resolved.
  */
-int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time);
+int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time, int ply);
 
 /**
  * @brief The core recursive alpha-beta search function (implemented with Negamax).
@@ -40,8 +43,7 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
  * to dramatically reduce the number of nodes that need to be evaluated.
  *
  * @param pos The position to search from.
- * @param current_depth The current depth from the root of the search.
- * @param max_depth The maximum depth to search to.
+ * @param depth The remaining depth to search (counts down to 0).
  * @param alpha The lower bound of the search window.
  * @param beta The upper bound of the search window.
  * @param best_move Output parameter to store the best move found at this node.
@@ -49,7 +51,7 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
  * @param move_time The total time allocated for the move in milliseconds.
  * @return The score of the position from the perspective of the side to move.
  */
-int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time);
+int alpha_beta_search(Position &pos, int depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time);
 
 /**
  * @brief Entry point for a single-threaded search.
