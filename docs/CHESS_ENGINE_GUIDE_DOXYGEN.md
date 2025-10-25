@@ -1570,3 +1570,1760 @@ Result: Position with rooks and kings only, all castling rights
 
 */
 
+
+---
+
+@section chapter_3 Chapter 3: Move Generation - Finding All Legal Moves
+
+@subsection movegen_overview 3.1 Move Generation Overview
+
+Move generation is the **most performance-critical** component of a chess engine. During a search to depth 10, an engine may generate moves for **millions** of positions.
+
+@subsubsection movegen_types Types of Move Generation
+
+@dot "Move Generation Pipeline"
+digraph movegen_pipeline {
+    rankdir=TB;
+    node [shape=box, style="filled,rounded"];
+    
+    position [label="Current Position", fillcolor="#90EE90"];
+    
+    pseudo [label="PSEUDO-LEGAL MOVES\nGenerate all moves that\nlook legal but might\nleave king in check", fillcolor="#FFD700"];
+    
+    legal [label="LEGAL MOVES\nFilter out moves that\nleave king in check", fillcolor="#87CEEB"];
+    
+    position -> pseudo [label="Fast generation"];
+    pseudo -> legal [label="Legality check\n(make/unmake)"];
+    
+    note_pseudo [shape=note, fillcolor="#FFFACD", label="Pseudo-legal example:\nMove rook, but own king\nis in check after move"];
+    
+    note_legal [shape=note, fillcolor="#FFFACD", label="Legal moves are\nactually playable\nwithout breaking rules"];
+    
+    pseudo -> note_pseudo [style=dashed];
+    legal -> note_legal [style=dashed];
+}
+@enddot
+
+**Performance Considerations:**
+
+| Approach | Speed | Safety | When to Use |
+|----------|-------|--------|-------------|
+| **Pseudo-legal** | Very fast (no validation) | Must validate after | Search (generate → try → validate) |
+| **Legal only** | Slower (validates all) | Always safe | UCI move parsing, endgame |
+| **Hybrid** | Fast for most pieces | Safe for king moves | Practical engines |
+
+@subsubsection attack_tables_precomputed 3.2 Pre-computed Attack Tables
+
+For pieces that don't depend on blockers (king, knight, pawn attacks), we pre-compute all attack patterns.
+
+**Why Pre-compute?**
+
+@code{.cpp}
+// WITHOUT pre-computation (slow):
+uint64_t get_knight_attacks_slow(int square) {
+    uint64_t attacks = 0;
+    int rank = square / 8;
+    int file = square % 8;
+    
+    // Try all 8 knight moves
+    if (rank + 2 < 8 && file + 1 < 8) attacks |= (1ULL << (square + 17));
+    if (rank + 2 < 8 && file - 1 >= 0) attacks |= (1ULL << (square + 15));
+    if (rank - 2 >= 0 && file + 1 < 8) attacks |= (1ULL << (square - 15));
+    if (rank - 2 >= 0 && file - 1 >= 0) attacks |= (1ULL << (square - 17));
+    if (rank + 1 < 8 && file + 2 < 8) attacks |= (1ULL << (square + 10));
+    if (rank + 1 < 8 && file - 2 >= 0) attacks |= (1ULL << (square + 6));
+    if (rank - 1 >= 0 && file + 2 < 8) attacks |= (1ULL << (square - 6));
+    if (rank - 1 >= 0 && file - 2 >= 0) attacks |= (1ULL << (square - 10));
+    
+    return attacks;  // ~16 operations + branches
+}
+
+// WITH pre-computation (fast):
+uint64_t knightAttacks[64];  // Pre-computed at startup
+
+uint64_t get_knight_attacks_fast(int square) {
+    return knightAttacks[square];  // 1 operation!
+}
+@endcode
+
+**Visual Example - Knight Attack Pattern:**
+
+@verbatim
+Knight on e4 (square 28) can attack 8 squares:
+
+  a  b  c  d  e  f  g  h
+8 .  .  .  .  .  .  .  .
+7 .  .  .  .  .  .  .  .
+6 .  .  .  x  .  x  .  .   <- d6, f6
+5 .  .  x  .  .  .  x  .   <- c5, g5
+4 .  .  .  .  N  .  .  .   <- Knight here
+3 .  .  x  .  .  .  x  .   <- c3, g3
+2 .  .  .  x  .  x  .  .   <- d2, f2
+1 .  .  .  .  .  .  .  .
+
+Attack bitboard for e4:
+Bits set at: 12, 14, 19, 23, 33, 37, 42, 44
+
+Hex value: 0x0000284400442800
+Binary (showing only relevant bits):
+  ...0010100001000100000001000100100000000000
+
+This is stored in knightAttacks[28]
+@endverbatim
+
+**Knight Attack Table Generation:**
+
+@code{.cpp}
+/**
+ * @brief Initialize knight attack table
+ * 
+ * For each square, compute all squares a knight can attack.
+ * Knight moves in L-shape: 2 squares in one direction, 1 perpendicular.
+ * 
+ * Time complexity: O(64 × 8) = O(1) - runs once at startup
+ */
+void init_knight_attacks() {
+    // Knight move offsets (relative to current square)
+    // These represent: 2 up 1 right, 2 up 1 left, etc.
+    const int knight_offsets[8] = {
+        17,   // 2 ranks up, 1 file right
+        15,   // 2 ranks up, 1 file left
+        10,   // 1 rank up, 2 files right
+        6,    // 1 rank up, 2 files left
+        -6,   // 1 rank down, 2 files right
+        -10,  // 1 rank down, 2 files left
+        -15,  // 2 ranks down, 1 file right
+        -17   // 2 ranks down, 1 file left
+    };
+    
+    for (int square = 0; square < 64; square++) {
+        uint64_t attacks = 0;
+        
+        int rank = square / 8;
+        int file = square % 8;
+        
+        for (int offset : knight_offsets) {
+            int target = square + offset;
+            
+            // Check if target is on board
+            if (target < 0 || target >= 64) continue;
+            
+            int target_rank = target / 8;
+            int target_file = target % 8;
+            
+            // Check if move wrapped around board edges
+            // (knight can't jump more than 2 files or ranks)
+            int rank_diff = abs(target_rank - rank);
+            int file_diff = abs(target_file - file);
+            
+            if (rank_diff <= 2 && file_diff <= 2) {
+                attacks |= (1ULL << target);
+            }
+        }
+        
+        knightAttacks[square] = attacks;
+    }
+}
+@endcode
+
+**King Attack Table (simpler - only 8 directions):**
+
+@code{.cpp}
+void init_king_attacks() {
+    // King moves: 1 square in any direction (including diagonal)
+    const int king_offsets[8] = {
+        8,    // North
+        -8,   // South
+        1,    // East
+        -1,   // West
+        9,    // North-East
+        7,    // North-West
+        -7,   // South-East
+        -9    // South-West
+    };
+    
+    for (int square = 0; square < 64; square++) {
+        uint64_t attacks = 0;
+        
+        int rank = square / 8;
+        int file = square % 8;
+        
+        for (int offset : king_offsets) {
+            int target = square + offset;
+            
+            if (target < 0 || target >= 64) continue;
+            
+            int target_rank = target / 8;
+            int target_file = target % 8;
+            
+            // King moves exactly 1 square
+            if (abs(target_rank - rank) <= 1 && abs(target_file - file) <= 1) {
+                attacks |= (1ULL << target);
+            }
+        }
+        
+        kingAttacks[square] = attacks;
+    }
+}
+@endcode
+
+@verbatim
+King Attack Pattern (e4):
+
+  a  b  c  d  e  f  g  h
+8 .  .  .  .  .  .  .  .
+7 .  .  .  .  .  .  .  .
+6 .  .  .  .  .  .  .  .
+5 .  .  .  x  x  x  .  .   <- d5, e5, f5
+4 .  .  .  x  K  x  .  .   <- d4, (king), f4
+3 .  .  .  x  x  x  .  .   <- d3, e3, f3
+2 .  .  .  .  .  .  .  .
+1 .  .  .  .  .  .  .  .
+
+8 possible moves (fewer on edges/corners)
+Corner king has only 3 moves!
+@endverbatim
+
+**Pawn Attacks (Color-Dependent):**
+
+@code{.cpp}
+// Pawns are special: different attacks for white/black
+uint64_t whitePawnAttacks[64];
+uint64_t blackPawnAttacks[64];
+
+void init_pawn_attacks() {
+    for (int square = 0; square < 64; square++) {
+        int rank = square / 8;
+        int file = square % 8;
+        
+        // White pawns attack diagonally UP (northeast, northwest)
+        whitePawnAttacks[square] = 0;
+        if (rank < 7) {  // Not on 8th rank
+            if (file > 0) {  // Northwest
+                whitePawnAttacks[square] |= (1ULL << (square + 7));
+            }
+            if (file < 7) {  // Northeast
+                whitePawnAttacks[square] |= (1ULL << (square + 9));
+            }
+        }
+        
+        // Black pawns attack diagonally DOWN (southeast, southwest)
+        blackPawnAttacks[square] = 0;
+        if (rank > 0) {  // Not on 1st rank
+            if (file > 0) {  // Southwest
+                blackPawnAttacks[square] |= (1ULL << (square - 9));
+            }
+            if (file < 7) {  // Southeast
+                blackPawnAttacks[square] |= (1ULL << (square - 7));
+            }
+        }
+    }
+}
+@endcode
+
+@verbatim
+Pawn Attack Patterns:
+
+White Pawn on e4:              Black Pawn on e5:
+
+  a  b  c  d  e  f  g  h          a  b  c  d  e  f  g  h
+8 .  .  .  .  .  .  .  .        8 .  .  .  .  .  .  .  .
+7 .  .  .  .  .  .  .  .        7 .  .  .  .  .  .  .  .
+6 .  .  .  .  .  .  .  .        6 .  .  .  .  .  .  .  .
+5 .  .  .  x  .  x  .  .        5 .  .  .  .  p  .  .  .  <- Black pawn
+4 .  .  .  .  P  .  .  .        4 .  .  .  x  .  x  .  .  <- Attacks down
+3 .  .  .  .  .  .  .  .        3 .  .  .  .  .  .  .  .
+2 .  .  .  .  .  .  .  .        2 .  .  .  .  .  .  .  .
+1 .  .  .  .  .  .  .  .        1 .  .  .  .  .  .  .  .
+       ^        ^                        ^        ^
+    Attack    Attack                 Attack    Attack
+    d5        f5                     d4        f4
+@endverbatim
+
+@subsection magic_bitboards 3.3 Magic Bitboards - Sliding Piece Attacks
+
+@subsubsection why_magic_needed Why We Need Magic Bitboards
+
+Sliding pieces (rook, bishop, queen) are **much harder** than leapers (knight, king):
+
+@dot "Sliding Piece Problem"
+digraph sliding_problem {
+    rankdir=TB;
+    node [shape=box, style="filled,rounded"];
+    
+    problem [label="PROBLEM:\nRook attacks depend\non blocking pieces", fillcolor="#FF6347", fontcolor=white];
+    
+    example1 [label="Empty Board:\nRook on e4 attacks\n14 squares", fillcolor="#FFD700"];
+    
+    example2 [label="Blocked Board:\nRook on e4 attacks\nonly 6 squares!", fillcolor="#FFA500"];
+    
+    solution [label="SOLUTION:\nMagic Bitboards\nFast lookup based\non blockers", fillcolor="#90EE90"];
+    
+    problem -> example1;
+    problem -> example2;
+    example1 -> solution;
+    example2 -> solution;
+}
+@enddot
+
+**Visual Example - Rook Attacks Depend on Blockers:**
+
+@verbatim
+Case 1: Empty board               Case 2: With blockers
+
+  a  b  c  d  e  f  g  h             a  b  c  d  e  f  g  h
+8 .  .  .  .  x  .  .  .           8 .  .  .  .  x  .  .  .
+7 .  .  .  .  x  .  .  .           7 .  .  .  .  X  .  .  .  <- Blocker!
+6 .  .  .  .  x  .  .  .           6 .  .  .  .  x  .  .  .
+5 .  .  .  .  x  .  .  .           5 .  .  .  .  x  .  .  .
+4 x  x  x  x  R  x  x  x           4 x  X  .  .  R  x  x  X  <- Blockers!
+3 .  .  .  .  x  .  .  .           3 .  .  .  .  .  .  .  .
+2 .  .  .  .  x  .  .  .           2 .  .  .  .  .  .  .  .
+1 .  .  .  .  x  .  .  .           1 .  .  .  .  .  .  .  .
+
+Attacks: 14 squares                Attacks: 6 squares
+(entire rank + file)               (stops at blockers)
+
+We need DIFFERENT attack bitboards for different blocker patterns!
+@endverbatim
+
+@subsubsection magic_concept The Magic Bitboard Concept
+
+**Main Idea:** Use a **perfect hash function** to map blocker configurations to attack bitboards.
+
+@dot "Magic Bitboard Lookup Process"
+digraph magic_lookup {
+    rankdir=LR;
+    node [shape=box, style="filled,rounded"];
+    
+    occupied [label="Occupied\nSquares\n(all pieces)", fillcolor="#E8F4F8"];
+    
+    mask [label="Mask Relevant\nBlockers\n(only squares\nthat matter)", fillcolor="#FFD700"];
+    
+    blockers [label="Blocker\nConfiguration", fillcolor="#FFA500"];
+    
+    magic [label="Multiply by\nMAGIC NUMBER", fillcolor="#FF6347", fontcolor=white];
+    
+    shift [label="Shift Right\n(extract bits)", fillcolor="#DDA0DD"];
+    
+    index [label="Index into\nAttack Table", fillcolor="#87CEEB"];
+    
+    result [label="Attack\nBitboard", fillcolor="#90EE90"];
+    
+    occupied -> mask;
+    mask -> blockers [label="AND"];
+    blockers -> magic [label="×"];
+    magic -> shift [label=">>"];
+    shift -> index;
+    index -> result [label="table[index]"];
+}
+@enddot
+
+**Step-by-Step Example:**
+
+@code{.cpp}
+/**
+ * @brief Get rook attacks using magic bitboards
+ * 
+ * @param square Rook position (0-63)
+ * @param occupied Bitboard of all pieces on board
+ * @return Bitboard of squares rook can attack
+ */
+uint64_t get_rook_attacks(int square, uint64_t occupied) {
+    // STEP 1: Mask relevant blockers
+    // Only blockers on rook's rank/file matter (edges don't block)
+    uint64_t blockers = occupied & rook_masks[square];
+    
+    // Example for rook on e4:
+    // rook_masks[28] = rank 4 + file e (minus edges)
+    // = 0x0000001010106E00
+    
+    // STEP 2: Apply magic multiplication
+    // Magic number chosen to create unique hash for each blocker config
+    uint64_t hash = blockers * rook_magics[square];
+    
+    // STEP 3: Shift to get table index
+    // Shift right by (64 - bits_needed)
+    // For e4: need 12 bits (4096 possibilities)
+    int index = hash >> (64 - rook_shift[square]);
+    
+    // STEP 4: Lookup pre-computed attack bitboard
+    return rook_attacks[square][index];
+}
+
+// Pre-computed tables (initialized at startup):
+uint64_t rook_masks[64];        // Relevant blocker masks
+uint64_t rook_magics[64];       // Magic numbers (found by search)
+int rook_shift[64];             // How many bits to shift
+uint64_t* rook_attacks[64];     // Attack tables (one per square)
+
+// Example magic number for e4:
+// rook_magics[28] = 0x0080001020400080ULL
+// This was found by trial-and-error to create perfect hash!
+@endcode
+
+**Why This Works - The Magic Property:**
+
+@verbatim
+For rook on e4, there are 2^10 = 1024 possible blocker configurations.
+
+Magic multiplication spreads these 1024 patterns across the upper bits
+of a 64-bit number such that after shifting, each pattern has a UNIQUE
+index into the attack table.
+
+Example (simplified with 8-bit numbers):
+
+Blocker Pattern 1: 00101000
+× Magic:           10110011
+= Product:         ???10110...
+>> Shift:          000010110  (index 22)
+
+Blocker Pattern 2: 01001000  (different pattern!)
+× Magic:           10110011
+= Product:         ???11101...
+>> Shift:          000011101  (index 29, different!)
+
+The magic number ensures NO COLLISIONS!
+@endverbatim
+
+**Finding Magic Numbers (done once, offline):**
+
+@code{.cpp}
+/**
+ * @brief Find a magic number for a square (brute force search)
+ * 
+ * A magic number is valid if it creates a perfect hash (no collisions)
+ * for all possible blocker configurations on this square.
+ * 
+ * @param square Square index
+ * @param bits Number of bits in mask
+ * @param is_bishop true for bishop, false for rook
+ * @return Magic number if found, 0 if failed
+ */
+uint64_t find_magic(int square, int bits, bool is_bishop) {
+    uint64_t mask = is_bishop ? get_bishop_mask(square) : get_rook_mask(square);
+    int n = __builtin_popcountll(mask);
+    int permutations = 1 << n;  // 2^n possible blocker configs
+    
+    // Generate all possible blocker configurations
+    uint64_t blockers[4096];
+    uint64_t attacks[4096];
+    
+    for (int i = 0; i < permutations; i++) {
+        blockers[i] = index_to_blockers(i, mask);
+        attacks[i] = is_bishop ? 
+            compute_bishop_attacks_slow(square, blockers[i]) :
+            compute_rook_attacks_slow(square, blockers[i]);
+    }
+    
+    // Try random magic numbers until we find one that works
+    for (int attempt = 0; attempt < 100000000; attempt++) {
+        uint64_t magic = random_uint64_few_bits();  // Sparse random number
+        
+        // Test if this magic creates perfect hash
+        uint64_t used[4096] = {0};
+        bool collision = false;
+        
+        for (int i = 0; i < permutations; i++) {
+            int index = (blockers[i] * magic) >> (64 - bits);
+            
+            if (used[index] == 0) {
+                used[index] = attacks[i];
+            } else if (used[index] != attacks[i]) {
+                collision = true;  // Collision detected!
+                break;
+            }
+        }
+        
+        if (!collision) {
+            return magic;  // Found a valid magic number!
+        }
+    }
+    
+    return 0;  // Failed (very rare with good RNG)
+}
+@endcode
+
+**Performance Comparison:**
+
+| Method | Operations | Speed |
+|--------|-----------|-------|
+| **Classical (ray-tracing)** | ~20-40 per lookup | Baseline |
+| **Kindergarten bitboards** | ~10 | 2-3x faster |
+| **Magic bitboards** | 3 (AND, multiply, shift, array access) | **10-15x faster** |
+| **PEXT (BMI2)** | 2 (PEXT instruction, array access) | **20x faster** (if CPU supports) |
+
+
+@subsection complete_movegen 3.4 Complete Move Generation Implementation
+
+@subsubsection pawn_moves Generating Pawn Moves - The Complex Case
+
+Pawns are the most complex piece for move generation due to:
+1. Different movement and capture directions
+2. Double-push on first move
+3. En passant capture
+4. Promotion to 4 different pieces
+
+@dot "Pawn Move Types"
+digraph pawn_moves {
+    rankdir=TB;
+    node [shape=box, style="filled,rounded"];
+    
+    pawn [label="Pawn Move\nGeneration", fillcolor="#90EE90"];
+    
+    single [label="Single Push\nForward 1 square", fillcolor="#FFD700"];
+    double [label="Double Push\nForward 2 squares\n(from start rank)", fillcolor="#FFA500"];
+    capture [label="Diagonal Captures\n(2 directions)", fillcolor="#FF6347", fontcolor=white];
+    ep [label="En Passant\nSpecial capture", fillcolor="#DDA0DD"];
+    promo [label="Promotions\n(4 pieces × moves)", fillcolor="#87CEEB"];
+    
+    pawn -> single;
+    pawn -> double;
+    pawn -> capture;
+    pawn -> ep;
+    
+    single -> promo [label="if rank 7/2"];
+    capture -> promo [label="if rank 7/2"];
+}
+@enddot
+
+**Complete Implementation:**
+
+@code{.cpp}
+/**
+ * @brief Generate all pawn moves (pushes, captures, en passant, promotions)
+ * 
+ * Handles all pawn move types including special cases.
+ * Generates 4 moves for each promotion.
+ * 
+ * @param pos Current position
+ * @param moves MoveList to append moves to
+ */
+void generate_pawn_moves(const Position& pos, MoveList& moves) {
+    bool white = pos.whiteToMove;
+    uint64_t pawns = white ? pos.WhitePawns : pos.BlackPawns;
+    uint64_t empty = pos.emptySquares;
+    uint64_t enemies = white ? pos.BlackoccupiedSquares : pos.WhiteoccupiedSquares;
+    
+    int forward = white ? 8 : -8;
+    int start_rank = white ? 1 : 6;
+    int promo_rank = white ? 7 : 0;
+    
+    // ========================================
+    // SINGLE PUSHES
+    // ========================================
+    uint64_t push_targets = white ?
+        (pawns << 8) & empty :   // White pawns push north
+        (pawns >> 8) & empty;    // Black pawns push south
+    
+    while (push_targets) {
+        int to = __builtin_ctzll(push_targets);
+        int from = to - forward;
+        
+        if (to / 8 == promo_rank) {
+            // Promotion - generate 4 moves
+            moves.add(Move(from, to, white ? W_QUEEN : B_QUEEN));
+            moves.add(Move(from, to, white ? W_ROOK : B_ROOK));
+            moves.add(Move(from, to, white ? W_BISHOP : B_BISHOP));
+            moves.add(Move(from, to, white ? W_KNIGHT : B_KNIGHT));
+        } else {
+            // Normal push
+            moves.add(Move(from, to));
+        }
+        
+        push_targets &= push_targets - 1;
+    }
+    
+    // ========================================
+    // DOUBLE PUSHES
+    // ========================================
+    uint64_t start_pawns = pawns & (white ? 0x000000000000FF00ULL : 0x00FF000000000000ULL);
+    uint64_t single_push = white ? (start_pawns << 8) & empty : (start_pawns >> 8) & empty;
+    uint64_t double_push = white ? (single_push << 8) & empty : (single_push >> 8) & empty;
+    
+    while (double_push) {
+        int to = __builtin_ctzll(double_push);
+        int from = to - (2 * forward);
+        
+        moves.add(Move(from, to));
+        double_push &= double_push - 1;
+    }
+    
+    // ========================================
+    // CAPTURES (LEFT/RIGHT)
+    // ========================================
+    
+    // Left captures (from pawn's perspective)
+    uint64_t left_captures = white ?
+        ((pawns & 0xFEFEFEFEFEFEFEFEULL) << 7) & enemies :  // Not A-file
+        ((pawns & 0xFEFEFEFEFEFEFEFEULL) >> 9) & enemies;
+    
+    while (left_captures) {
+        int to = __builtin_ctzll(left_captures);
+        int from = to - (white ? 7 : -9);
+        
+        if (to / 8 == promo_rank) {
+            moves.add(Move(from, to, white ? W_QUEEN : B_QUEEN));
+            moves.add(Move(from, to, white ? W_ROOK : B_ROOK));
+            moves.add(Move(from, to, white ? W_BISHOP : B_BISHOP));
+            moves.add(Move(from, to, white ? W_KNIGHT : B_KNIGHT));
+        } else {
+            moves.add(Move(from, to));
+        }
+        
+        left_captures &= left_captures - 1;
+    }
+    
+    // Right captures
+    uint64_t right_captures = white ?
+        ((pawns & 0x7F7F7F7F7F7F7F7FULL) << 9) & enemies :  // Not H-file
+        ((pawns & 0x7F7F7F7F7F7F7F7FULL) >> 7) & enemies;
+    
+    while (right_captures) {
+        int to = __builtin_ctzll(right_captures);
+        int from = to - (white ? 9 : -7);
+        
+        if (to / 8 == promo_rank) {
+            moves.add(Move(from, to, white ? W_QUEEN : B_QUEEN));
+            moves.add(Move(from, to, white ? W_ROOK : B_ROOK));
+            moves.add(Move(from, to, white ? W_BISHOP : B_BISHOP));
+            moves.add(Move(from, to, white ? W_KNIGHT : B_KNIGHT));
+        } else {
+            moves.add(Move(from, to));
+        }
+        
+        right_captures &= right_captures - 1;
+    }
+    
+    // ========================================
+    // EN PASSANT
+    // ========================================
+    if (pos.enPassant) {
+        int ep_square = __builtin_ctzll(pos.enPassant);
+        
+        // Find pawns that can capture en passant
+        uint64_t ep_attackers = white ?
+            (whitePawnAttacks[ep_square - 8]) & pawns :  // EP target is where pawn moved TO
+            (blackPawnAttacks[ep_square + 8]) & pawns;
+        
+        while (ep_attackers) {
+            int from = __builtin_ctzll(ep_attackers);
+            moves.add(Move(from, ep_square, MOVE_FLAG_EP));
+            ep_attackers &= ep_attackers - 1;
+        }
+    }
+}
+@endcode
+
+**Visual Example - Pawn Move Generation:**
+
+@verbatim
+Position: White pawn on e2, black pawn on d7 (just moved d7-d5)
+
+  a  b  c  d  e  f  g  h
+8 .  .  .  .  .  .  .  .
+7 .  .  .  .  .  .  .  .
+6 .  .  .  .  .  .  .  .
+5 .  .  .  p  .  .  .  .  <- Black pawn (just moved 2 squares)
+4 .  .  .  .  .  .  .  .
+3 .  .  .  .  .  .  .  .
+2 .  .  .  .  P  .  .  .  <- White pawn
+1 .  .  .  .  .  .  .  .
+
+Generated Moves for e2 pawn:
+1. e2-e3 (single push)
+2. e2-e4 (double push)
+
+If white plays e2-e4, then black d5 pawn can capture e4 en passant!
+
+Next position:
+  a  b  c  d  e  f  g  h
+5 .  .  .  p  .  .  .  .
+4 .  .  .  .  P  .  .  .  <- Just moved here
+3 .  .  .  X  .  .  .  .  <- En passant target square (d3)
+
+Black's d5 pawn can now:
+- Normal: d5-d4
+- En passant: d5xd4 (captures on d4, removes pawn from e4!)
+@endverbatim
+
+@subsubsection knight_moves Knight Move Generation - Simple and Fast
+
+@code{.cpp}
+/**
+ * @brief Generate knight moves
+ * 
+ * Knights are simple: just use pre-computed attack table
+ * and filter out squares occupied by own pieces.
+ */
+void generate_knight_moves(const Position& pos, MoveList& moves) {
+    bool white = pos.whiteToMove;
+    uint64_t knights = white ? pos.WhiteKnights : pos.BlackKnights;
+    uint64_t own_pieces = white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares;
+    
+    while (knights) {
+        int from = __builtin_ctzll(knights);
+        
+        // Get attacks and remove own pieces
+        uint64_t attacks = knightAttacks[from] & ~own_pieces;
+        
+        while (attacks) {
+            int to = __builtin_ctzll(attacks);
+            moves.add(Move(from, to));
+            attacks &= attacks - 1;
+        }
+        
+        knights &= knights - 1;
+    }
+}
+@endcode
+
+@subsubsection sliding_moves Sliding Piece Move Generation
+
+@code{.cpp}
+/**
+ * @brief Generate rook moves using magic bitboards
+ */
+void generate_rook_moves(const Position& pos, MoveList& moves) {
+    bool white = pos.whiteToMove;
+    uint64_t rooks = white ? pos.WhiteRooks : pos.BlackRooks;
+    uint64_t own_pieces = white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares;
+    
+    while (rooks) {
+        int from = __builtin_ctzll(rooks);
+        
+        // Use magic bitboards to get attacks
+        uint64_t attacks = get_rook_attacks(from, pos.occupiedSquares) & ~own_pieces;
+        
+        while (attacks) {
+            int to = __builtin_ctzll(attacks);
+            moves.add(Move(from, to));
+            attacks &= attacks - 1;
+        }
+        
+        rooks &= rooks - 1;
+    }
+}
+
+/**
+ * @brief Generate bishop moves using magic bitboards
+ */
+void generate_bishop_moves(const Position& pos, MoveList& moves) {
+    bool white = pos.whiteToMove;
+    uint64_t bishops = white ? pos.WhiteBishops : pos.BlackBishops;
+    uint64_t own_pieces = white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares;
+    
+    while (bishops) {
+        int from = __builtin_ctzll(bishops);
+        
+        uint64_t attacks = get_bishop_attacks(from, pos.occupiedSquares) & ~own_pieces;
+        
+        while (attacks) {
+            int to = __builtin_ctzll(attacks);
+            moves.add(Move(from, to));
+            attacks &= attacks - 1;
+        }
+        
+        bishops &= bishops - 1;
+    }
+}
+
+/**
+ * @brief Generate queen moves (combines rook + bishop)
+ */
+void generate_queen_moves(const Position& pos, MoveList& moves) {
+    bool white = pos.whiteToMove;
+    uint64_t queens = white ? pos.WhiteQueen : pos.BlackQueen;
+    uint64_t own_pieces = white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares;
+    
+    while (queens) {
+        int from = __builtin_ctzll(queens);
+        
+        // Queen = Rook + Bishop attacks
+        uint64_t attacks = (get_rook_attacks(from, pos.occupiedSquares) |
+                           get_bishop_attacks(from, pos.occupiedSquares)) & ~own_pieces;
+        
+        while (attacks) {
+            int to = __builtin_ctzll(attacks);
+            moves.add(Move(from, to));
+            attacks &= attacks - 1;
+        }
+        
+        queens &= queens - 1;
+    }
+}
+@endcode
+
+@subsubsection castling_generation Castling Move Generation - Complex Rules
+
+Castling has many conditions that must ALL be met:
+
+@dot "Castling Validation Flow"
+digraph castling {
+    rankdir=TB;
+    node [shape=diamond, style=filled, fillcolor="#FFE4B5"];
+    
+    start [label="Check Castling?", shape=box, fillcolor="#90EE90"];
+    
+    rights [label="Has castling\nrights?"];
+    empty [label="Squares\nbetween empty?"];
+    check [label="King in\ncheck?"];
+    through [label="King passes\nthrough check?"];
+    into [label="King moves\ninto check?"];
+    
+    legal [label="LEGAL\nAdd castling move", shape=box, fillcolor="#87CEEB"];
+    illegal [label="ILLEGAL\nSkip", shape=box, fillcolor="#FF6347", fontcolor=white];
+    
+    start -> rights;
+    rights -> empty [label="YES"];
+    rights -> illegal [label="NO"];
+    
+    empty -> check [label="YES"];
+    empty -> illegal [label="NO"];
+    
+    check -> through [label="NO"];
+    check -> illegal [label="YES"];
+    
+    through -> into [label="NO"];
+    through -> illegal [label="YES"];
+    
+    into -> legal [label="NO"];
+    into -> illegal [label="YES"];
+}
+@enddot
+
+@code{.cpp}
+/**
+ * @brief Generate castling moves
+ * 
+ * Castling is legal if:
+ * 1. King and rook haven't moved (castling rights)
+ * 2. Squares between are empty
+ * 3. King not in check
+ * 4. King doesn't pass through check
+ * 5. King doesn't land in check
+ */
+void generate_castling_moves(const Position& pos, MoveList& moves) {
+    if (pos.whiteToMove) {
+        // ========== WHITE KINGSIDE (e1-g1) ==========
+        if ((pos.castelingRights & 0x1) &&              // Has KS rights
+            !(pos.occupiedSquares & 0x60ULL) &&         // f1, g1 empty
+            !is_square_attacked(pos, 4, false) &&       // e1 not attacked
+            !is_square_attacked(pos, 5, false) &&       // f1 not attacked
+            !is_square_attacked(pos, 6, false)) {       // g1 not attacked
+            
+            moves.add(Move(4, 6, MOVE_FLAG_CASTLING));
+        }
+        
+        // ========== WHITE QUEENSIDE (e1-c1) ==========
+        if ((pos.castelingRights & 0x2) &&              // Has QS rights
+            !(pos.occupiedSquares & 0xEULL) &&          // b1, c1, d1 empty
+            !is_square_attacked(pos, 4, false) &&       // e1 not attacked
+            !is_square_attacked(pos, 3, false) &&       // d1 not attacked
+            !is_square_attacked(pos, 2, false)) {       // c1 not attacked
+            
+            // Note: b1 can be attacked (rook passes through)
+            moves.add(Move(4, 2, MOVE_FLAG_CASTLING));
+        }
+    } else {
+        // ========== BLACK KINGSIDE (e8-g8) ==========
+        if ((pos.castelingRights & 0x4) &&
+            !(pos.occupiedSquares & 0x6000000000000000ULL) &&
+            !is_square_attacked(pos, 60, true) &&
+            !is_square_attacked(pos, 61, true) &&
+            !is_square_attacked(pos, 62, true)) {
+            
+            moves.add(Move(60, 62, MOVE_FLAG_CASTLING));
+        }
+        
+        // ========== BLACK QUEENSIDE (e8-c8) ==========
+        if ((pos.castelingRights & 0x8) &&
+            !(pos.occupiedSquares & 0xE00000000000000ULL) &&
+            !is_square_attacked(pos, 60, true) &&
+            !is_square_attacked(pos, 59, true) &&
+            !is_square_attacked(pos, 58, true)) {
+            
+            moves.add(Move(60, 58, MOVE_FLAG_CASTLING));
+        }
+    }
+}
+@endcode
+
+**Common Castling Mistakes:**
+
+| Mistake | Wrong Behavior | Correct Behavior |
+|---------|----------------|------------------|
+| Not checking b1/b8 for queenside | Allows castling through attacked b-file | b1/b8 can be attacked (only c,d,e matter) |
+| Not moving rook | King moves but rook stays | Must move both pieces! |
+| Allowing castling in check | King in check, still castles | Must not be in check before castling |
+| Not updating castling rights | Can castle multiple times | Rights removed after king/rook moves |
+
+*/
+
+
+---
+
+@section chapter_4 Chapter 4: Search Algorithms - Finding the Best Move
+
+@subsection search_overview 4.1 Search Algorithm Overview
+
+The search algorithm is the "brain" of the engine - it looks ahead at possible futures and chooses the best move.
+
+@dot "Search Tree Example - Real Position"
+digraph search_tree {
+    rankdir=TB;
+    node [shape=box, style="filled,rounded", fontsize=10];
+    
+    root [label="Current Position\ne4 e5 Nf3\nEval: +0.2", fillcolor="#90EE90"];
+    
+    nc6 [label="After ...Nc6\nEval: +0.1", fillcolor="#FFD700"];
+    nf6 [label="After ...Nf6\nEval: +0.3", fillcolor="#FFD700"];
+    d6 [label="After ...d6\nEval: +0.4", fillcolor="#FFD700"];
+    
+    bc4_nc6 [label="After Bc4\nEval: +0.3", fillcolor="#FFA500"];
+    bb5_nc6 [label="After Bb5\nEval: +0.2", fillcolor="#FFA500"];
+    nc3_nc6 [label="After Nc3\nEval: +0.1", fillcolor="#FFA500"];
+    
+    root -> nc6 [label="Nc6"];
+    root -> nf6 [label="Nf6"];
+    root -> d6 [label="d6"];
+    
+    nc6 -> bc4_nc6 [label="Bc4"];
+    nc6 -> bb5_nc6 [label="Bb5"];
+    nc6 -> nc3_nc6 [label="Nc3"];
+    
+    label="Search explores multiple futures\nChooses path with best eval";
+}
+@enddot
+
+**Key Metrics:**
+
+| Metric | Typical Value | Impact |
+|--------|---------------|--------|
+| **Branching Factor** | ~35 | Each ply multiplies positions by 35 |
+| **Search Depth** | 8-20 plies | Depth 10 = ~10^15 positions without pruning! |
+| **Nodes per Second** | 1M - 10M | Modern engines on single thread |
+| **Effective Branching** | ~6 | With alpha-beta pruning |
+
+@subsection alphabeta_detailed 4.2 Alpha-Beta Pruning - The Workhorse
+
+@subsubsection alphabeta_concept Alpha-Beta Concept with Real Example
+
+@verbatim
+Consider this position:
+
+Position A (White to move):
+  We found move M1 that scores +2 (we're up 2 pawns)
+  
+  Now trying move M2:
+    Black responds with R1: Black wins queen! Score = -9
+    
+  STOP! Don't check black's other responses!
+  
+  WHY: Black will definitely play R1 (winning queen)
+       So M2 scores -9 for us
+       But we already have M1 that scores +2
+       M2 is worse, no matter what else we find!
+       
+This is a BETA CUTOFF - opponent won't allow this line.
+@endverbatim
+
+**Alpha-Beta Implementation with Detailed Comments:**
+
+@code{.cpp}
+/**
+ * @brief Alpha-beta search with negamax framework
+ * 
+ * @param pos Position to search
+ * @param depth Remaining depth (plies)
+ * @param alpha Lower bound (best we can guarantee)
+ * @param beta Upper bound (worst opponent will allow)
+ * @param ply Current ply from root (for mate scoring)
+ * @return Score from current player's perspective
+ */
+int alphabeta(Position& pos, int depth, int alpha, int beta, int ply) {
+    // ========================================
+    // BASE CASE: Depth limit reached
+    // ========================================
+    if (depth == 0) {
+        return quiescence(pos, alpha, beta);  // Don't stop at tactical position
+    }
+    
+    // ========================================
+    // Check for draw conditions
+    // ========================================
+    
+    // Fifty-move rule
+    if (pos.move50rule >= 100) {
+        return 0;
+    }
+    
+    // Insufficient material (K vs K, KB vs K, etc.)
+    if (is_insufficient_material(pos)) {
+        return 0;
+    }
+    
+    // Three-fold repetition (check hash history)
+    if (is_repetition(pos)) {
+        return 0;
+    }
+    
+    // ========================================
+    // Generate and count legal moves
+    // ========================================
+    MoveList moves;
+    generate_legal_moves(pos, moves);
+    
+    // Terminal node: checkmate or stalemate
+    if (moves.count == 0) {
+        if (is_in_check(pos)) {
+            // Checkmate - return mate score
+            // Prefer shorter mates: depth 1 mate better than depth 5 mate
+            return -MATE_SCORE + ply;
+        } else {
+            // Stalemate
+            return 0;
+        }
+    }
+    
+    // ========================================
+    // Transposition Table Lookup
+    // ========================================
+    TTEntry* entry = probe_tt(pos.zobrist_key);
+    Move tt_move = NO_MOVE;
+    
+    if (entry && entry->key == pos.zobrist_key) {
+        tt_move = entry->best_move;
+        
+        // Can we use cached result?
+        if (entry->depth >= depth) {
+            if (entry->flag == EXACT) {
+                return entry->score;
+            } else if (entry->flag == LOWER_BOUND && entry->score >= beta) {
+                return beta;
+            } else if (entry->flag == UPPER_BOUND && entry->score <= alpha) {
+                return alpha;
+            }
+        }
+    }
+    
+    // ========================================
+    // Move Ordering (Critical for pruning!)
+    // ========================================
+    order_moves(moves, tt_move, ply);
+    
+    // ========================================
+    // Main Search Loop
+    // ========================================
+    int best_score = -INFINITY;
+    Move best_move = NO_MOVE;
+    int moves_searched = 0;
+    int original_alpha = alpha;
+    
+    for (int i = 0; i < moves.count; i++) {
+        Move m = moves[i];
+        
+        // Make the move
+        makemove(pos, m);
+        
+        int score;
+        
+        // ========================================
+        // Principal Variation Search (PVS)
+        // ========================================
+        if (moves_searched == 0) {
+            // First move - search with full window
+            score = -alphabeta(pos, depth - 1, -beta, -alpha, ply + 1);
+        } else {
+            // Later moves - try null window first (assume they're worse)
+            score = -alphabeta(pos, depth - 1, -alpha - 1, -alpha, ply + 1);
+            
+            // If it beat alpha, re-search with full window
+            if (score > alpha && score < beta) {
+                score = -alphabeta(pos, depth - 1, -beta, -alpha, ply + 1);
+            }
+        }
+        
+        // Undo the move
+        undomove(pos, m);
+        
+        moves_searched++;
+        
+        // ========================================
+        // Update best score
+        // ========================================
+        if (score > best_score) {
+            best_score = score;
+            best_move = m;
+            
+            // Beta cutoff - opponent won't allow this
+            if (score >= beta) {
+                // Update history heuristic
+                if (!is_capture(m)) {
+                    history[m.from][m.to] += depth * depth;
+                    
+                    // Update killer moves
+                    if (killers[ply][0] != m) {
+                        killers[ply][1] = killers[ply][0];
+                        killers[ply][0] = m;
+                    }
+                }
+                
+                // Store in TT
+                store_tt(pos.zobrist_key, depth, beta, LOWER_BOUND, best_move);
+                
+                return beta;  // Fail-high (beta cutoff)
+            }
+            
+            // Improved alpha - we found a better move
+            if (score > alpha) {
+                alpha = score;
+            }
+        }
+    }
+    
+    // ========================================
+    // Store in Transposition Table
+    // ========================================
+    int flag = (best_score > original_alpha) ? EXACT : UPPER_BOUND;
+    store_tt(pos.zobrist_key, depth, best_score, flag, best_move);
+    
+    return best_score;
+}
+@endcode
+
+**Visualization of Alpha-Beta Pruning in Action:**
+
+@verbatim
+Search Tree (numbers are evaluations, X = pruned branches):
+
+                    Root (α=-∞, β=+∞)
+                   /      |      \
+                 M1       M2       M3
+                /         |         \
+             +2.5        -9          ?
+              /\         /|\         
+             /  \       / | \       
+           +2  +2.5   -9  X  X    <- Pruned! We know M2 ≤ -9
+                      
+          α=+2.5 after M1
+          
+          M2: First response is -9
+              Since -9 < α (+2.5), and it's opponent's turn,
+              they'll choose -9 or worse (for us).
+              So M2 ≤ -9 < α, don't search other responses!
+              
+Result: Only searched 3 positions instead of 6+
+@endverbatim
+
+@dot "Alpha-Beta Pruning Visualization"
+digraph alphabeta_prune {
+    rankdir=TB;
+    node [shape=box, style="filled,rounded"];
+    
+    root [label="Root Node\nα=-∞, β=+∞\nBest so far: none", fillcolor="#90EE90"];
+    
+    m1 [label="Move 1\nScore: +2.5\nα=+2.5", fillcolor="#FFD700"];
+    m2 [label="Move 2\nScore: ≤-9\n(pruned)", fillcolor="#FF6347", fontcolor=white];
+    m3 [label="Move 3\nScore: +3.0\nNEW BEST", fillcolor="#87CEEB"];
+    
+    m2_r1 [label="Response 1\nScore: -9", fillcolor="#FFA500"];
+    m2_pruned [label="Other responses\nPRUNED!", fillcolor="#DC143C", fontcolor=white, style="filled,dashed"];
+    
+    root -> m1 [label="Search fully"];
+    root -> m2 [label="Start search"];
+    root -> m3 [label="Search fully"];
+    
+    m2 -> m2_r1 [label="Found bad response"];
+    m2 -> m2_pruned [label="Skip these!", style=dashed];
+    
+    label="Alpha-beta skips provably bad branches";
+}
+@enddot
+
+@subsection quiescence 4.3 Quiescence Search - Avoiding the Horizon Effect
+
+**The Horizon Effect Problem:**
+
+@verbatim
+Position at depth 0:
+  White just moved Qxf7+ (takes pawn with check)
+  Static eval: +1 (up a pawn)
+  
+Position at depth 1 (black responds):
+  Black plays Kxf7 (king takes queen!)
+  Static eval: -8 (down a queen!)
+  
+Problem: Depth-0 eval said "+1" but move loses queen!
+         We stopped searching at an unstable (tactical) position.
+         
+Solution: Quiescence search - keep searching captures until quiet.
+@endverbatim
+
+@dot "Quiescence vs No Quiescence"
+digraph quiescence_comparison {
+    rankdir=LR;
+    node [shape=box, style="filled,rounded"];
+    
+    subgraph cluster_no_q {
+        label="Without Quiescence";
+        style=filled;
+        fillcolor="#FFE4E4";
+        
+        no_q_d0 [label="Depth 0\nQxf7+\nEval: +1", fillcolor="#FFD700"];
+        no_q_stop [label="STOP HERE\nReturn +1\n(WRONG!)", fillcolor="#FF6347", fontcolor=white];
+        
+        no_q_d0 -> no_q_stop;
+    }
+    
+    subgraph cluster_q {
+        label="With Quiescence";
+        style=filled;
+        fillcolor="#E4FFE4";
+        
+        q_d0 [label="Depth 0\nQxf7+\nCapture!", fillcolor="#FFD700"];
+        q_q1 [label="Q-depth 1\nKxf7\nCapture!", fillcolor="#FFA500"];
+        q_q2 [label="Q-depth 2\nNo captures\nEval: -8", fillcolor="#87CEEB"];
+        q_stop [label="STOP HERE\nReturn -8\n(CORRECT!)", fillcolor="#90EE90"];
+        
+        q_d0 -> q_q1 [label="Continue"];
+        q_q1 -> q_q2 [label="Continue"];
+        q_q2 -> q_stop;
+    }
+}
+@enddot
+
+**Quiescence Search Implementation:**
+
+@code{.cpp}
+/**
+ * @brief Quiescence search - search only captures until position is quiet
+ * 
+ * Prevents horizon effect by continuing to search tactical sequences
+ * (captures, checks) until position stabilizes.
+ * 
+ * @param pos Position to evaluate
+ * @param alpha Lower bound
+ * @param beta Upper bound
+ * @return Static evaluation or continuation score
+ */
+int quiescence(Position& pos, int alpha, int beta) {
+    // ========================================
+    // Standing Pat - Can we stand pat (not capture)?
+    // ========================================
+    int stand_pat = evaluate(pos);
+    
+    // Beta cutoff - position is already too good
+    if (stand_pat >= beta) {
+        return beta;
+    }
+    
+    // Update alpha if standing pat is better
+    if (stand_pat > alpha) {
+        alpha = stand_pat;
+    }
+    
+    // ========================================
+    // Delta Pruning - Skip hopeless captures
+    // ========================================
+    const int QUEEN_VALUE = 900;
+    if (stand_pat + QUEEN_VALUE + 200 < alpha) {
+        // Even capturing a queen won't save us
+        return alpha;
+    }
+    
+    // ========================================
+    // Generate only captures (and checks in some engines)
+    // ========================================
+    MoveList captures;
+    generate_captures(pos, captures);
+    
+    // Order captures by MVV-LVA (Most Valuable Victim - Least Valuable Attacker)
+    order_captures(captures);
+    
+    // ========================================
+    // Search captures
+    // ========================================
+    for (int i = 0; i < captures.count; i++) {
+        Move m = captures[i];
+        
+        // SEE Pruning - Skip losing captures
+        if (SEE(pos, m) < 0) {
+            continue;  // Don't search QxP if pawn is defended by pawn
+        }
+        
+        makemove(pos, m);
+        
+        // Recursive quiescence search
+        int score = -quiescence(pos, -beta, -alpha);
+        
+        undomove(pos, m);
+        
+        if (score >= beta) {
+            return beta;
+        }
+        
+        if (score > alpha) {
+            alpha = score;
+        }
+    }
+    
+    return alpha;
+}
+@endcode
+
+**Static Exchange Evaluation (SEE):**
+
+@code{.cpp}
+/**
+ * @brief Static Exchange Evaluation - predict outcome of capture sequence
+ * 
+ * Example: White plays QxP on square where pawn is defended by pawn
+ * SEE calculates: Queen takes pawn (+1), pawn takes queen (-9) = -8
+ * Result: Losing capture, don't search in quiescence
+ * 
+ * @param pos Position
+ * @param move Capture move to evaluate
+ * @return Material gain/loss from capture sequence
+ */
+int SEE(const Position& pos, Move move) {
+    int from = move.from;
+    int to = move.to;
+    
+    // Value of captured piece
+    int gain[32];  // Max exchange depth
+    int depth = 0;
+    
+    gain[0] = piece_value[pos.pieceAt(to)];
+    
+    // Simulate capture sequence
+    uint64_t attackers = get_attackers(pos, to);
+    uint64_t occupied = pos.occupiedSquares;
+    uint64_t from_bb = (1ULL << from);
+    
+    occupied ^= from_bb;  // Remove initial attacker
+    attackers ^= from_bb;
+    
+    Pieces attacker = pos.pieceAt(from);
+    bool side = pos.whiteToMove;
+    
+    // Simulate exchanges
+    while (attackers) {
+        depth++;
+        gain[depth] = piece_value[attacker] - gain[depth - 1];
+        
+        if (max(-gain[depth - 1], gain[depth]) < 0) {
+            break;  // Losing trade, stop
+        }
+        
+        // Find next smallest attacker
+        // (implementation details omitted for brevity)
+        attacker = get_smallest_attacker(attackers, side);
+        if (attacker == NO_PIECE) break;
+        
+        side = !side;
+    }
+    
+    // Minimax to find actual value
+    while (--depth) {
+        gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
+    }
+    
+    return gain[0];
+}
+@endcode
+
+
+---
+
+@section chapter_5 Chapter 5: Position Evaluation
+
+@subsection eval_overview 5.1 Evaluation Function Overview
+
+The evaluation function assigns a numerical score to a position. A good eval is critical - if your eval is wrong, your search finds the "best" bad moves!
+
+@dot "Evaluation Components"
+digraph eval {
+    rankdir=TB;
+    node [shape=box, style="filled,rounded"];
+    
+    eval [label="Total\nEvaluation", fillcolor="#90EE90", shape=ellipse];
+    
+    material [label="Material\n~70% of score", fillcolor="#FFD700"];
+    position [label="Piece Position\n(PST)\n~20% of score", fillcolor="#FFA500"];
+    pawn_struct [label="Pawn Structure\n~5% of score", fillcolor="#87CEEB"];
+    king_safety [label="King Safety\n~5% of score", fillcolor="#DDA0DD"];
+    
+    material -> eval [label="weight × value"];
+    position -> eval [label="weight × value"];
+    pawn_struct -> eval [label="weight × value"];
+    king_safety -> eval [label="weight × value"];
+    
+    label="Combine weighted features";
+}
+@enddot
+
+@subsection piece_square_tables 5.2 Piece-Square Tables - Position Value
+
+**Concept:** A knight on e4 is worth MORE than a knight on a1!
+
+@verbatim
+Knight PST (White's perspective, centipawns):
+
+  a    b    c    d    e    f    g    h
+8 -50  -40  -30  -30  -30  -30  -40  -50   <- Rim
+7 -40  -20    0    0    0    0  -20  -40
+6 -30    0  +10  +15  +15  +10    0  -30
+5 -30   +5  +15  +20  +20  +15   +5  -30   <- CENTER!
+4 -30    0  +15  +20  +20  +15    0  -30   <- CENTER!
+3 -30   +5  +10  +15  +15  +10   +5  -30
+2 -40  -20    0   +5   +5    0  -20  -40
+1 -50  -40  -30  -30  -30  -30  -40  -50   <- Rim
+
+Logic:
+- Center squares (d4, e4, d5, e5): BEST (+20)
+- Near center (c3-f6 area): GOOD (+10 to +15)
+- Edges: BAD (-40 to -50)
+
+Saying: "Knights on the rim are dim!"
+
+Total value of knight = BASE_VALUE (320) + PST_BONUS
+Knight on e4 = 320 + 20 = 340 cp
+Knight on a1 = 320 + (-50) = 270 cp
+Difference = 70 cp advantage for centralized knight!
+@endverbatim
+
+**Pawn PST - Encourage Advancement:**
+
+@verbatim
+White Pawn PST:
+
+  a    b    c    d    e    f    g    h
+8  0    0    0    0    0    0    0    0    <- Promotion (handled separately)
+7 +50  +50  +50  +50  +50  +50  +50  +50   <- Encourage advance
+6 +10  +10  +20  +30  +30  +20  +10  +10
+5  +5   +5  +10  +25  +25  +10   +5   +5
+4  0    0    0  +20  +20    0    0    0    <- Central pawns
+3  +5  -5  -10    0    0  -10   -5   +5
+2 +10  +10  +10  -20  -20  +10  +10  +10   <- Discourage premature h2/g2 moves
+1  0    0    0    0    0    0    0    0
+
+Logic:
+- Rank 7: Big bonus (+50) - pawn close to promoting
+- Rank 4-5 center: Bonus (+20-25) - space advantage
+- Rank 2 wings (a2, b2, g2, h2): Bonus (+10) - don't move yet
+- Rank 2 center (d2, e2): Penalty (-20) - move these first
+@endverbatim
+
+**King PST - Different for Middlegame vs Endgame:**
+
+@code{.cpp}
+// Middlegame: King should hide in corner (castle)
+const int king_mg_pst[64] = {
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+     20,  20,   0,   0,   0,   0,  20,  20,  // Encourage castling
+     20,  30,  10,   0,   0,  10,  30,  20   // Safest on g1/b1
+};
+
+// Endgame: King should fight in center
+const int king_eg_pst[64] = {
+    -50, -40, -30, -20, -20, -30, -40, -50,
+    -30, -20, -10,   0,   0, -10, -20, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,  // CENTER!
+    -30, -10,  30,  40,  40,  30, -10, -30,  // CENTER!
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -30,   0,   0,   0,   0, -30, -30,
+    -50, -30, -30, -30, -30, -30, -30, -50
+};
+
+// Tapered evaluation based on game phase
+int game_phase = calculate_phase(pos);  // 0=endgame, 256=opening
+int mg_score = evaluate_mg(pos);
+int eg_score = evaluate_eg(pos);
+int final_score = (mg_score * game_phase + eg_score * (256 - game_phase)) / 256;
+@endcode
+
+@subsection advanced_eval 5.3 Advanced Evaluation Terms
+
+**Passed Pawns - Very Valuable in Endgame:**
+
+@verbatim
+Example: White pawn on e5, no black pawns can stop it
+
+  a  b  c  d  e  f  g  h
+8 .  .  .  .  .  .  .  .
+7 .  .  .  .  .  .  .  .
+6 .  .  .  .  .  .  .  .
+5 .  .  .  .  P  .  .  .  <- Passed pawn!
+4 .  .  .  .  .  .  .  .
+3 .  p  .  .  .  .  .  .  <- Black pawn on b3 (irrelevant)
+2 .  .  .  .  .  .  .  .
+1 .  .  .  .  .  .  .  .
+
+Check if passed:
+- No black pawns on files d, e, or f (adjacent+same files)
+- No black pawns ahead on those files (ranks 6-8)
+= Pawn is passed!
+
+Bonus calculation:
+distance_to_8th_rank = 7 - 5 = 2
+bonus = 50 + (5 - distance) × 10
+      = 50 + (5 - 2) × 10
+      = 50 + 30 = 80 centipawns!
+@endverbatim
+
+**Doubled Pawns - Weakness:**
+
+@code{.cpp}
+int evaluate_doubled_pawns(const Position& pos) {
+    int penalty = 0;
+    
+    for (int file = 0; file < 8; file++) {
+        uint64_t file_mask = 0x0101010101010101ULL << file;
+        int white_count = __builtin_popcountll(pos.WhitePawns & file_mask);
+        int black_count = __builtin_popcountll(pos.BlackPawns & file_mask);
+        
+        // Penalty for each doubled pawn
+        if (white_count > 1) penalty -= (white_count - 1) * 20;
+        if (black_count > 1) penalty += (black_count - 1) * 20;
+    }
+    
+    return penalty;
+}
+@endcode
+
+---
+
+@section chapter_6 Chapter 6: Advanced Techniques
+
+@subsection transposition_table 6.1 Transposition Tables
+
+**Why TT is Critical:**
+
+@verbatim
+Same position reached by different move orders:
+
+Path A: 1.e4 e5 2.Nf3 Nc6 3.Bc4
+Path B: 1.e4 e5 2.Bc4 Nc6 3.Nf3
+
+Same position! Without TT, we search it twice = wasted work.
+With TT, we store result first time, reuse it second time.
+
+Speedup: Typically 3-10x faster with good TT!
+@endverbatim
+
+@subsection move_ordering 6.2 Move Ordering - Critical for Alpha-Beta
+
+**Move Ordering Quality Impact:**
+
+| Move Order | Nodes Searched | Effective Branching Factor |
+|------------|----------------|----------------------------|
+| **Perfect** (best first) | Minimum | ~6 |
+| **Good** (TT + MVV-LVA + killers) | ~2x minimum | ~8 |
+| **Poor** (worst first) | Maximum (~10^15) | ~35 |
+| **Random** | Very high | ~30 |
+
+**Ordering Scheme (priority order):**
+
+@code{.cpp}
+void order_moves(MoveList& moves, Move tt_move, int ply) {
+    for (Move& m : moves) {
+        if (m == tt_move) {
+            m.score = 10000000;  // HIGHEST priority
+        }
+        else if (is_capture(m)) {
+            int victim = piece_value[captured_piece(m)];
+            int attacker = piece_value[moving_piece(m)];
+            
+            // MVV-LVA: Prefer QxP over PxP, prefer PxQ over QxQ
+            m.score = 1000000 + victim * 10 - attacker;
+            
+            // SEE: Bonus for winning captures
+            if (SEE(pos, m) >= 0) {
+                m.score += 100000;
+            }
+        }
+        else if (m == killers[ply][0]) {
+            m.score = 90000;
+        }
+        else if (m == killers[ply][1]) {
+            m.score = 80000;
+        }
+        else {
+            // History heuristic
+            m.score = history[m.from][m.to];
+        }
+    }
+    
+    // Sort by score (highest first)
+    std::sort(moves.begin(), moves.end(), [](Move a, Move b) {
+        return a.score > b.score;
+    });
+}
+@endcode
+
+---
+
+@section conclusion Conclusion and Next Steps
+
+@subsection what_learned What You've Learned
+
+Congratulations! You now understand:
+
+✅ **Board Representation**
+- Bitboards and why they're superior to arrays
+- Complete position structure with all state
+- FEN parsing and position setup
+
+✅ **Move Generation**
+- Pre-computed attack tables (king, knight, pawn)
+- Magic bitboards for sliding pieces
+- Complete move generation for all pieces
+- Special moves (castling, en passant, promotions)
+
+✅ **Search Algorithms**
+- Alpha-beta pruning (1000x speedup over minimax!)
+- Quiescence search (avoiding horizon effect)
+- Principal Variation Search
+- Iterative deepening
+
+✅ **Position Evaluation**
+- Material counting
+- Piece-square tables (position matters!)
+- Advanced features (passed pawns, pawn structure, king safety)
+- Tapered evaluation (middlegame vs endgame)
+
+✅ **Advanced Techniques**
+- Transposition tables (3-10x speedup)
+- Move ordering (critical for pruning)
+- Null move pruning
+- Late move reductions
+
+@subsection implementation_roadmap Implementation Roadmap
+
+**Phase 1: Basic Engine (1-2 weeks)**
+1. Implement bitboard position structure
+2. Write FEN parser
+3. Generate moves for all pieces
+4. Implement make/unmake
+5. Write simple material-only evaluation
+6. Implement basic minimax search
+7. Add UCI protocol basics
+
+**Result:** ~1000 Elo engine that can play legal chess
+
+**Phase 2: Alpha-Beta (1 week)**
+1. Convert minimax to alpha-beta
+2. Add quiescence search
+3. Implement iterative deepening
+4. Add basic time management
+
+**Result:** ~1600 Elo engine, significant strength gain
+
+**Phase 3: Transposition Table (1 week)**
+1. Implement Zobrist hashing
+2. Create TT structure
+3. Add TT probing and storing
+4. Handle hash collisions
+
+**Result:** ~1900 Elo engine, much faster search
+
+**Phase 4: Move Ordering (1 week)**
+1. Add MVV-LVA for captures
+2. Implement killer moves
+3. Add history heuristic
+4. Implement PVS
+
+**Result:** ~2100 Elo engine, strong amateur level
+
+**Phase 5: Advanced Evaluation (2 weeks)**
+1. Create piece-square tables
+2. Add pawn structure evaluation
+3. Implement king safety
+4. Add mobility evaluation
+5. Implement tapered eval
+
+**Result:** ~2300 Elo engine, expert level
+
+**Phase 6: Advanced Pruning (1 week)**
+1. Null move pruning
+2. Late move reductions
+3. Futility pruning
+4. Delta pruning in quiescence
+
+**Result:** ~2400-2500 Elo engine, master level
+
+**Phase 7: Polish (ongoing)**
+1. Fix bugs found through testing
+2. Tune evaluation parameters
+3. Optimize performance
+4. Add opening book support
+
+**Result:** ~2500-2700 Elo engine, depending on tuning
+
+@subsection testing_resources Testing and Resources
+
+**Essential Testing:**
+
+| Test Type | Purpose | Tool |
+|-----------|---------|------|
+| **Perft** | Verify move generation correctness | Built-in perft command |
+| **Tactical Tests** | Verify search finds tactics | WAC, Bratko-Kopec, Eigenmann |
+| **Engine Matches** | Measure strength | CuteChess, BanksiaGUI |
+| **Opening Suite** | Test various positions | Silver, 40H40, Swiss |
+
+**Resources:**
+
+- **Chess Programming Wiki**: https://www.chessprogramming.org/
+- **TalkChess Forum**: http://talkchess.com/
+- **Stockfish Source**: https://github.com/official-stockfish/Stockfish
+- **Engine Rating Lists**: https://ccrl.chessdom.com/
+
+**Example Perft Test:**
+
+@code{.cpp}
+// Test move generation by counting positions
+void perft_test() {
+    Position pos;
+    pos.setFromFEN("startpos");
+    
+    // Correct perft values for starting position
+    assert(perft(pos, 1) == 20);
+    assert(perft(pos, 2) == 400);
+    assert(perft(pos, 3) == 8902);
+    assert(perft(pos, 4) == 197281);
+    assert(perft(pos, 5) == 4865609);
+    
+    std::cout << "All perft tests passed!" << std::endl;
+}
+@endcode
+
+@subsection final_words Final Words
+
+Writing a chess engine is a challenging but rewarding journey. You'll learn about:
+- Algorithm optimization
+- Data structures
+- Performance tuning
+- Search algorithms
+- Artificial intelligence
+
+Most importantly, you'll have created something that can play chess at a level that would have been impossible for humans to achieve without computers!
+
+**Good luck, and happy coding!** ♟️🚀
+
+---
+
+@note This guide is maintained at: https://github.com/yourusername/Chess-Engine
+
+@author Your Name
+@date 2024
+@version 1.0
+
+*/
+
