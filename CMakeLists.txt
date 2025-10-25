@@ -8,10 +8,13 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 endif()
 
 project(OctoKnight)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_CXX_STANDARD 17)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 set(CMAKE_CXX_FLAGS_RELEASE
     "${CMAKE_CXX_FLAGS_RELEASE} -march=native -flto -O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 # set(CMAKE_BUILD_TYPE Release) Only proceed if CMAKE_BUILD_TYPE has NOT been
 #
 # explicitly set
@@ -26,7 +29,7 @@ if(NOT CMAKE_BUILD_TYPE)
   # Check for "debug" or "release" in the directory name
   if(BUILD_DIR_NAME_LOWER MATCHES "debug")
     set(CMAKE_BUILD_TYPE
-        "Debug"
+        Debug
         CACHE STRING "Choose the type of build." FORCE)
     message(
       STATUS
@@ -41,6 +44,7 @@ if(NOT CMAKE_BUILD_TYPE)
   endif()
 
 endif()
+
 file(GLOB OCTOKNIGHT_SRC "src/*.cpp")
 list(REMOVE_ITEM OCTOKNIGHT_SRC "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
@@ -48,16 +52,22 @@ add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})
 
 add_executable(OctoKnight src/main.cpp)
 target_link_libraries(OctoKnight OctoKnightLib pthread)
-add_custom_command(TARGET OctoKnight POST_BUILD COMMAND strip $<TARGET_FILE:OctoKnight>)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_custom_command(
+    TARGET OctoKnight
+    POST_BUILD
+    COMMAND strip $<TARGET_FILE:OctoKnight>)
+endif()
 
 enable_testing()
 
 add_subdirectory(extern/googletest)
 
-add_executable(OctoKnight_illegal_move_test tests/illegal_move_test.cpp)
-target_link_libraries(OctoKnight_illegal_move_test gtest_main OctoKnightLib
-                      pthread)
-add_test(NAME OctoKnight_illegal_move_test COMMAND OctoKnight_illegal_move_test)
+file(GLOB TEST_FILES "tests/*.cpp")
 
-add_executable(debug_movegen tests/debug_movegen.cpp)
-target_link_libraries(debug_movegen OctoKnightLib pthread)
+foreach(TEST_FILE ${TEST_FILES})
+  get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
+  add_executable(${TEST_NAME} ${TEST_FILE})
+  target_link_libraries(${TEST_NAME} gtest_main OctoKnightLib pthread)
+  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+endforeach()

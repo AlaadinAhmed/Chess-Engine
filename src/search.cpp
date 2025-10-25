@@ -8,6 +8,7 @@
 std::atomic<bool> searching = false;
 std::atomic<long long> nodes_searched = 0;
 std::atomic<int> seldepth = 0;
+std::atomic<int> max_seldepth = 0;
 #include "eval.hpp"
 #include "movegen.hpp"
 #include "tt.hpp"
@@ -24,9 +25,9 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
     log_debug("Entering quiescence");
     
     // Track selective depth (atomic update)
-    int current_seldepth = seldepth.load();
-    while (ply > current_seldepth) {
-        if (seldepth.compare_exchange_weak(current_seldepth, ply)) {
+    int current_max = max_seldepth.load();
+    while (ply > current_max) {
+        if (max_seldepth.compare_exchange_weak(current_max, ply)) {
             break;
         }
     }
@@ -35,8 +36,8 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
         return 0; // Stop early if search is interrupted
     }
 
-    // Check time limit
-    if (move_time != -1 && (nodes_searched & 2047) == 0) {
+    // Check time limit more frequently (every 256 nodes)
+    if (move_time != -1 && (nodes_searched & 255) == 0) {
         auto now = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
         if (duration >= move_time) {
@@ -137,12 +138,13 @@ void score_moves(MoveList &move_list, Position &pos, Move tt_move) {
 int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time) {
     log_debug("Entering alpha_beta_search function (current_depth " + std::to_string(current_depth) + ", max_depth " + std::to_string(max_depth) + ")");
 
+    // Check if search should stop (check more frequently)
     if (!searching) {
         return 0;
     }
     
-    // Check time limit
-    if (move_time != -1 && (nodes_searched & 2047) == 0) {
+    // Check time limit more frequently (every 256 nodes instead of 1024)
+    if (move_time != -1 && (nodes_searched & 255) == 0) {
         auto now = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
         if (duration >= move_time) {
@@ -189,13 +191,13 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         int king_square = pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing);
         if (is_square_attacked(pos, king_square, !pos.whiteToMove)) {
             // Checkmate - return mate score adjusted for distance
-            return -100000 + (max_depth - current_depth);
+            return -30000 + (max_depth - current_depth);
         } else {
             return 0; // Stalemate
         }
     }
 
-    int best_score = -100000;
+    int best_score = -50000;
     Move local_best_move = {}; // Initialize with default values
     bool found_legal_move = false;
     int illegal_count = 0; // Count illegal moves
@@ -277,6 +279,7 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
 
     auto start_time = std::chrono::high_resolution_clock::now();
     nodes_searched = 0; // Reset nodes searched for each new search
+    max_seldepth = 0; // Reset max seldepth
 
     for (int depth = 1; depth <= max_depth; ++depth) {
         log_debug("Starting search for depth " + std::to_string(depth) + ", searching is " + (searching ? "true" : "false"));
@@ -284,30 +287,38 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
 
         Move iteration_best_move;
         history_ply = 0; // ensure clean state per iteration
-        seldepth = 0; // Reset seldepth for this iteration
-        int iteration_score = alpha_beta_search(pos, depth, depth, -1000000, 1000000, iteration_best_move, start_time, move_time);
+        seldepth = 0; // Reset seldepth for this iteration (not max_seldepth!)
+        int iteration_score = alpha_beta_search(pos, depth, depth, -50000, 50000, iteration_best_move, start_time, move_time);
 
         if (searching) { // Check if we are still searching (e.g., not stopped by 'stop' command)
             current_best_score = iteration_score;
             current_best_move = iteration_best_move;
+            
+            // Update max_seldepth
+            int current_sel = seldepth.load();
+            int current_max = max_seldepth.load();
+            if (current_sel > current_max) {
+                max_seldepth.store(current_sel);
+            }
 
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+            if (duration == 0) duration = 1; // Avoid division by zero
 
             // Reconstruct PV with legality checks to avoid bogus TT chains
-            std::string pv_string = "";
+            std::vector<Move> pv_moves;
             Position temp_pos = pos;
             int saved_history_ply = history_ply; // Save before PV extraction
             std::vector<uint64_t> pv_keys; // Track keys to detect cycles
             
             // Start with the best move from this iteration
             if (iteration_best_move.from != 0 || iteration_best_move.to != 0) {
-                pv_string += move_to_uci(iteration_best_move) + " ";
+                pv_moves.push_back(iteration_best_move);
                 makemove(temp_pos, iteration_best_move);
                 pv_keys.push_back(pos.zobrist_key);
                 
                 // Then follow the TT chain
-                for (int i = 1; i < depth; ++i) {
+                for (int i = 1; i < depth && pv_moves.size() < (size_t)depth; ++i) {
                     // Check for cycles
                     if (std::find(pv_keys.begin(), pv_keys.end(), temp_pos.zobrist_key) != pv_keys.end()) {
                         break; // Position repeated, stop PV
@@ -334,11 +345,17 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
                     if (!legal_found) {
                         break;
                     }
-                    pv_string += move_to_uci(pv_move) + " ";
+                    pv_moves.push_back(pv_move);
                     makemove(temp_pos, pv_move);
                 }
             }
             history_ply = saved_history_ply; // Restore after PV extraction
+            
+            // Build PV string
+            std::string pv_string = "";
+            for (const auto& m : pv_moves) {
+                pv_string += move_to_uci(m) + " ";
+            }
 
             long long nps = 0;
             long long total_nodes = nodes_searched.load();
@@ -348,7 +365,7 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
 
             // Output info string
             std::cout << "info depth " << depth
-                      << " seldepth " << seldepth.load()
+                      << " seldepth " << max_seldepth.load()
                       << " score cp " << current_best_score
                       << " time " << duration
                       << " nodes " << total_nodes
@@ -417,7 +434,7 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
                 seldepth = 0;
             }
             
-            int iteration_score = alpha_beta_search(local_pos, depth, -1000000, 1000000, iteration_best, start_time, move_time);
+            int iteration_score = alpha_beta_search(local_pos, depth, depth, -1000000, 1000000, iteration_best, start_time, move_time);
             
             if (!searching) break;
             

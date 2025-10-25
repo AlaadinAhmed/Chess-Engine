@@ -77,4 +77,20 @@ int countPassedPawns(const Position &pos, bool is_white);
  * @param config The evaluation configuration with weights for different terms.
  * @return The score of the position in centipawns. Positive favors white, negative favors black.
  */
+void evaluate_bishop_pair(const Position &pos, int &score, const EvalConfig &config);
+void evaluate_rook_files(const Position &pos, int &score, const EvalConfig &config);
+void evaluate_king_shield(const Position &pos, int &score, int phase);
+void evaluate_mobility(Position &pos, int &score, int phase);
+void evaluate_pawns(const Position &pos, int &score, const EvalConfig &config);
+void evaluate_material_and_pst(const Position &pos, int &score_mg, int &score_eg);
+
+/**
+ * @brief Evaluates the given board position and returns a score.
+ * The score is from the perspective of the side to move. It considers material balance,
+ * piece-square tables (PST), pawn structure, and other positional factors.
+ *
+ * @param pos The position to evaluate.
+ * @param config The evaluation configuration with weights for different terms.
+ * @return The score of the position in centipawns. Positive favors white, negative favors black.
+ */
 int evaluate(Position &pos, const EvalConfig &config = default_eval_config);

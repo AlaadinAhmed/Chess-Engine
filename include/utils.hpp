@@ -29,3 +29,12 @@ std::string move_to_uci(Move move);
 
 // Opening book helper
 std::string get_book_move(const Position &pos, const std::string &book_file_path);
+
+/**
+ * @brief Performs a Static Exchange Evaluation (SEE).
+ *
+ * @param pos The position.
+ * @param move The move to evaluate.
+ * @return The SEE value.
+ */
+int see(const Position &pos, Move move);

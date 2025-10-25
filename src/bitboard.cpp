@@ -1,7 +1,7 @@
 #include "bitboard.hpp"
 #include <cstdint>
 
-uint64_t kingAttacks[64];
+
 uint64_t knightAttacks[64] = {
     0x0000000000020400ULL,     0x0000000000050800ULL,     0x00000000000A1100ULL,     0x0000000000142200ULL,
     0x0000000000284400ULL,     0x0000000000508800ULL,     0x0000000000A01000ULL,     0x0000000000402000ULL,
@@ -30,6 +30,8 @@ const uint64_t FileF = 0x2020202020202020ULL;
 const uint64_t FileG = 0x4040404040404040ULL;
 const uint64_t FileH = 0x8080808080808080ULL;
 const uint64_t Rank1 = 0x00000000000000FFULL;
+const uint64_t Rank2 = 0x000000000000FF00ULL;
+const uint64_t Rank7 = 0x00FF000000000000ULL;
 const uint64_t Rank8 = 0xFF00000000000000ULL;
 
 bool getBit( uint64_t bitboard, int square){

@@ -27,10 +27,10 @@ void TranspositionTable::clear() {
 }
 
 TTEntry *TranspositionTable::probe(uint64_t key, bool &found) {
-  log_debug("tt.probe called with key = " + std::to_string(key) + ", num_entries = " + std::to_string(num_entries));
+  // log_debug("tt.probe called with key = " + std::to_string(key) + ", num_entries = " + std::to_string(num_entries));
   int index = key % num_entries;
-  log_debug("calculated index = " + std::to_string(index));
-  log_debug("Accessing table[index].key");
+  // log_debug("calculated index = " + std::to_string(index));
+  // log_debug("Accessing table[index].key");
   if (table[index].key == key) {
     found = true;
   } else {
@@ -42,11 +42,14 @@ TTEntry *TranspositionTable::probe(uint64_t key, bool &found) {
 void TranspositionTable::save(uint64_t key, int depth, HashFlag flag,
                             int score, Move best_move) {
   int index = key % num_entries;
-  table[index].key = key;
-  table[index].depth = depth;
-  table[index].flag = flag;
-  table[index].score = score;
-  table[index].best_move = best_move;
+  // Always replace scheme: only replace if new entry is deeper or same position
+  if (table[index].key == key || table[index].depth <= depth) {
+    table[index].key = key;
+    table[index].depth = depth;
+    table[index].flag = flag;
+    table[index].score = score;
+    table[index].best_move = best_move;
+  }
 }
 
 void TranspositionTable::resize(int size_mb) {

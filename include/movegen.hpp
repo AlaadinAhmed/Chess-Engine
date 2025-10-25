@@ -126,6 +126,17 @@ void generate_moves(Position &pos, MoveList &move_list);
 void generate_captures(Position &pos, MoveList &move_list);
 
 /**
+ * @brief Generates all pseudo-legal and legal quiet (non-capture) moves for the current side to move.
+ *
+ * @param pos The current board position.
+ * @param move_list A reference to a MoveList that will be populated with the generated quiet moves.
+ */
+
+void generate_quiet_moves(Position &pos, MoveList &move_list);
+
+extern uint64_t kingAttacks[64];
+
+/**
  * @brief Initializes pre-calculated attack tables for kings.
  * This should be called once at program startup.
  */

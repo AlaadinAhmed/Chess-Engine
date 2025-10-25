@@ -2,6 +2,7 @@
 #include "fen.hpp"
 #include "bitboard.hpp"
 #include "globals.hpp"
+#include "hash.hpp"
 
 Pieces get_piece_at(const Position &pos, int sq) {
     uint64_t bb = 1ULL << sq;
@@ -29,4 +30,31 @@ void Position::setStartingPosition() {
 
 void Position::setFen(const std::string& fen_string) {
     parseFEN(*this, fen_string);
+    zobrist_key = calculate_initial_hash(*this);
+}
+
+void Position::make_null_move() {
+    // A null move just switches the side to move and updates the Zobrist key.
+    // The en passant square is also cleared.
+    if (enPassant != 0) {
+        zobrist_key ^= zkey.epKeys[enPassant % 8];
+        enPassant = 0;
+    }
+    zobrist_key ^= zkey.sideKey;
+    whiteToMove = !whiteToMove;
+}
+
+void Position::unmake_null_move() {
+    // To undo a null move, we just switch the side back.
+    // The en passant square cannot be restored, but it's not a big deal for NMP.
+    zobrist_key ^= zkey.sideKey;
+    whiteToMove = !whiteToMove;
+}
+
+bool Position::has_non_pawn_material(bool side) const {
+    if (side) { // White
+        return (WhiteKnights | WhiteBishops | WhiteRooks | WhiteQueen) != 0;
+    } else { // Black
+        return (BlackKnights | BlackBishops | BlackRooks | BlackQueen) != 0;
+    }
 }

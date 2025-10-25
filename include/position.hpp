@@ -28,6 +28,28 @@ enum Pieces {
   NO_PIECE  ///< Represents an empty square or no promotion piece.
 };
 
+enum PieceType {
+    NO_PIECE_TYPE,
+    PAWN,
+    KNIGHT,
+    BISHOP,
+    ROOK,
+    QUEEN,
+    KING
+};
+
+inline PieceType get_piece_type(Pieces p) {
+    switch (p) {
+        case W_PAWN: case B_PAWN: return PAWN;
+        case W_KNIGHT: case B_KNIGHT: return KNIGHT;
+        case W_BISHOP: case B_BISHOP: return BISHOP;
+        case W_ROOK: case B_ROOK: return ROOK;
+        case W_QUEEN: case B_QUEEN: return QUEEN;
+        case W_KING: case B_KING: return KING;
+        default: return NO_PIECE_TYPE;
+    }
+}
+
 /**
  * @brief Represents a single chess move.
  * A move is defined by a starting square, an ending square, and an optional
@@ -116,6 +138,10 @@ struct Position {
    * @param fen_string A valid FEN string.
    */
   void setFen(const std::string& fen_string);
+
+  void make_null_move();
+  void unmake_null_move();
+  bool has_non_pawn_material(bool side) const;
 
   /**
    * @brief Resets all members of the Position struct to their default (empty) state.

@@ -124,10 +124,9 @@ void uci_loop() {
       search_thread = std::thread([pos_copy, max_depth, move_time]() mutable {
         Move best_move;
         search(pos_copy, max_depth, move_time, best_move);
-        if (searching) {
-          std::lock_guard<std::mutex> lock(cout_mutex);
-          std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
-        }
+        // Always output bestmove, even if stopped
+        std::lock_guard<std::mutex> lock(cout_mutex);
+        std::cout << "bestmove " << move_to_uci(best_move) << std::endl;
         searching = false;
       });
     } else if (token == "stop") {

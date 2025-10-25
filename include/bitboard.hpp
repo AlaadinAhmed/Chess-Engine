@@ -10,6 +10,8 @@
 #include <vector>
 #include "position.hpp"
 
+typedef uint64_t Bitboard;
+
 /**
  * @brief Sets a bit on a bitboard.
  *
@@ -48,4 +50,6 @@ extern const uint64_t FileF;
 extern const uint64_t FileG;
 extern const uint64_t FileH;
 extern const uint64_t Rank1;
+extern const uint64_t Rank2;
+extern const uint64_t Rank7;
 extern const uint64_t Rank8;

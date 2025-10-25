@@ -236,11 +236,96 @@ int calculateGamePhase(const Position &pos) {
     return phase;
 }
 
-int evaluate(Position &pos, const EvalConfig &config) {
-    int score_mg = 0;
-    int score_eg = 0;
-    int phase = calculateGamePhase(pos); // 0..24
+void evaluate_mobility(Position &pos, int &score, int phase) {
+    auto popcount = [](uint64_t x){ return __builtin_popcountll(x); };
+    auto mobility_side = [&](bool white){
+        int mob = 0;
+        uint64_t bbk = white ? pos.WhiteKnights : pos.BlackKnights;
+        while (bbk) { int sq = __builtin_ctzll(bbk); uint64_t attacks = knightAttacks[sq] & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbk &= bbk - 1; }
+        uint64_t bbb = white ? pos.WhiteBishops : pos.BlackBishops;
+        while (bbb) { int sq = __builtin_ctzll(bbb); uint64_t attacks = get_bishop_attacks(sq, pos.occupiedSquares) & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbb &= bbb - 1; }
+        uint64_t bbr = white ? pos.WhiteRooks : pos.BlackRooks;
+        while (bbr) { int sq = __builtin_ctzll(bbr); uint64_t attacks = get_rook_attacks(sq, pos.occupiedSquares) & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbr &= bbr - 1; }
+        uint64_t bbq = white ? pos.WhiteQueen : pos.BlackQueen;
+        while (bbq) { int sq = __builtin_ctzll(bbq); uint64_t attacks = (get_bishop_attacks(sq, pos.occupiedSquares) | get_rook_attacks(sq, pos.occupiedSquares)) & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbq &= bbq - 1; }
+        return mob;
+    };
+    // Weights MG/EG
+    int mob_w = ((phase * 2) + ((24 - phase) * 1)) / 24; // slightly higher in MG
+    score += mob_w * (mobility_side(true) - mobility_side(false));
+}
 
+void evaluate_king_shield(const Position &pos, int &score, int phase) {
+    auto king_pawn_shield = [&](bool white){
+        uint64_t king = white ? pos.WhiteKing : pos.BlackKing;
+        if (!king) return;
+        int ks = __builtin_ctzll(king);
+        int rank = ks / 8;
+        int file = ks % 8;
+        int dir = white ? -1 : 1; // forward direction towards opponent
+        int shield_rank = rank + dir;
+        int bonus = 0;
+        if (shield_rank >= 0 && shield_rank < 8) {
+            for (int df = -1; df <= 1; ++df) {
+                int f = file + df;
+                if (f < 0 || f > 7) continue;
+                int sq = shield_rank * 8 + f;
+                uint64_t mask = 1ULL << sq;
+                if (white) {
+                    if (pos.WhitePawns & mask) bonus += 8;
+                } else {
+                    if (pos.BlackPawns & mask) bonus += 8;
+                }
+            }
+        }
+        // Taper bonus to middlegame
+        score += white ? (bonus * phase) / 24 : -(bonus * phase) / 24;
+    };
+    king_pawn_shield(true);
+    king_pawn_shield(false);
+}
+
+void evaluate_rook_files(const Position &pos, int &score, const EvalConfig &config) {
+    auto apply_rook_file_bonus = [&](bool white){
+        uint64_t rooks = white ? pos.WhiteRooks : pos.BlackRooks;
+        while (rooks) {
+            int sq = __builtin_ctzll(rooks);
+            int file = sq % 8;
+            bool friendly_pawn = __builtin_popcountll((white ? pos.WhitePawns : pos.BlackPawns) & file_masks[file]) > 0;
+            bool enemy_pawn = __builtin_popcountll((white ? pos.BlackPawns : pos.WhitePawns) & file_masks[file]) > 0;
+            if (!friendly_pawn && !enemy_pawn) {
+                score += white ? config.rook_open_file_bonus : -config.rook_open_file_bonus;
+            } else if (!friendly_pawn && enemy_pawn) {
+                score += white ? config.rook_semi_open_file_bonus : -config.rook_semi_open_file_bonus;
+            }
+            rooks &= rooks - 1;
+        }
+    };
+    apply_rook_file_bonus(true);
+    apply_rook_file_bonus(false);
+}
+
+void evaluate_bishop_pair(const Position &pos, int &score, const EvalConfig &config) {
+    if (__builtin_popcountll(pos.WhiteBishops) >= 2) {
+        score += config.bishop_pair_bonus;
+    }
+    if (__builtin_popcountll(pos.BlackBishops) >= 2) {
+        score -= config.bishop_pair_bonus;
+    }
+}
+
+void evaluate_pawns(const Position &pos, int &score, const EvalConfig &config) {
+    score -= countIsolatedPawns(pos, true) * config.isolated_pawn_penalty;
+    score += countIsolatedPawns(pos, false) * config.isolated_pawn_penalty;
+
+    score -= countDoubledPawns(pos, true) * config.doubled_pawn_penalty;
+    score += countDoubledPawns(pos, false) * config.doubled_pawn_penalty;
+
+    score += countPassedPawns(pos, true) * config.passed_pawn_bonus;
+    score -= countPassedPawns(pos, false) * config.passed_pawn_bonus;
+}
+
+void evaluate_material_and_pst(const Position &pos, int &score_mg, int &score_eg) {
     uint64_t bb = pos.WhitePawns;
     while (bb) {
         int sq = __builtin_ctzll(bb);
@@ -326,93 +411,32 @@ int evaluate(Position &pos, const EvalConfig &config) {
         score_eg -= king_pst_eg[63 - sq];
         bb &= bb - 1;
     }
+}
+
+int evaluate(Position &pos, const EvalConfig &config) {
+    int score_mg = 0;
+    int score_eg = 0;
+    int phase = calculateGamePhase(pos); // 0..24
+
+    evaluate_material_and_pst(pos, score_mg, score_eg);
 
     int score = (score_mg * phase + score_eg * (24 - phase)) / 24;
 
-    score -= countIsolatedPawns(pos, true) * config.isolated_pawn_penalty;
-    score += countIsolatedPawns(pos, false) * config.isolated_pawn_penalty;
+    evaluate_pawns(pos, score, config);
 
-    score -= countDoubledPawns(pos, true) * config.doubled_pawn_penalty;
-    score += countDoubledPawns(pos, false) * config.doubled_pawn_penalty;
+        evaluate_bishop_pair(pos, score, config);
 
-    score += countPassedPawns(pos, true) * config.passed_pawn_bonus;
-    score -= countPassedPawns(pos, false) * config.passed_pawn_bonus;
+    
 
-    if (__builtin_popcountll(pos.WhiteBishops) >= 2) {
-        score += config.bishop_pair_bonus;
-    }
-    if (__builtin_popcountll(pos.BlackBishops) >= 2) {
-        score -= config.bishop_pair_bonus;
-    }
+        evaluate_rook_files(pos, score, config);
 
-    // Rook file bonuses
-    auto apply_rook_file_bonus = [&](bool white){
-        uint64_t rooks = white ? pos.WhiteRooks : pos.BlackRooks;
-        while (rooks) {
-            int sq = __builtin_ctzll(rooks);
-            int file = sq % 8;
-            bool friendly_pawn = __builtin_popcountll((white ? pos.WhitePawns : pos.BlackPawns) & file_masks[file]) > 0;
-            bool enemy_pawn = __builtin_popcountll((white ? pos.BlackPawns : pos.WhitePawns) & file_masks[file]) > 0;
-            if (!friendly_pawn && !enemy_pawn) {
-                score += white ? config.rook_open_file_bonus : -config.rook_open_file_bonus;
-            } else if (!friendly_pawn && enemy_pawn) {
-                score += white ? config.rook_semi_open_file_bonus : -config.rook_semi_open_file_bonus;
-            }
-            rooks &= rooks - 1;
-        }
-    };
-    apply_rook_file_bonus(true);
-    apply_rook_file_bonus(false);
+    evaluate_king_shield(pos, score, phase);
 
-    // King pawn shield (very basic): pawns in front of king get bonus in MG
-    auto king_pawn_shield = [&](bool white){
-        uint64_t king = white ? pos.WhiteKing : pos.BlackKing;
-        if (!king) return;
-        int ks = __builtin_ctzll(king);
-        int rank = ks / 8;
-        int file = ks % 8;
-        int dir = white ? -1 : 1; // forward direction towards opponent
-        int shield_rank = rank + dir;
-        int bonus = 0;
-        if (shield_rank >= 0 && shield_rank < 8) {
-            for (int df = -1; df <= 1; ++df) {
-                int f = file + df;
-                if (f < 0 || f > 7) continue;
-                int sq = shield_rank * 8 + f;
-                uint64_t mask = 1ULL << sq;
-                if (white) {
-                    if (pos.WhitePawns & mask) bonus += 8;
-                } else {
-                    if (pos.BlackPawns & mask) bonus += 8;
-                }
-            }
-        }
-        // Taper bonus to middlegame
-        score += white ? (bonus * phase) / 24 : -(bonus * phase) / 24;
-    };
-    king_pawn_shield(true);
-    king_pawn_shield(false);
+    evaluate_mobility(pos, score, phase);
 
-    // Mobility: count pseudo-legal attacks as a proxy
-    auto popcount = [](uint64_t x){ return __builtin_popcountll(x); };
-    auto mobility_side = [&](bool white){
-        int mob = 0;
-        uint64_t bbk = white ? pos.WhiteKnights : pos.BlackKnights;
-        while (bbk) { int sq = __builtin_ctzll(bbk); uint64_t attacks = knightAttacks[sq] & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbk &= bbk - 1; }
-        uint64_t bbb = white ? pos.WhiteBishops : pos.BlackBishops;
-        while (bbb) { int sq = __builtin_ctzll(bbb); uint64_t attacks = get_bishop_attacks(sq, pos.occupiedSquares) & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbb &= bbb - 1; }
-        uint64_t bbr = white ? pos.WhiteRooks : pos.BlackRooks;
-        while (bbr) { int sq = __builtin_ctzll(bbr); uint64_t attacks = get_rook_attacks(sq, pos.occupiedSquares) & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbr &= bbr - 1; }
-        uint64_t bbq = white ? pos.WhiteQueen : pos.BlackQueen;
-        while (bbq) { int sq = __builtin_ctzll(bbq); uint64_t attacks = (get_bishop_attacks(sq, pos.occupiedSquares) | get_rook_attacks(sq, pos.occupiedSquares)) & ~ (white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares); mob += popcount(attacks); bbq &= bbq - 1; }
-        return mob;
-    };
-    // Weights MG/EG
-    int mob_w = ((phase * 2) + ((24 - phase) * 1)) / 24; // slightly higher in MG
-    score += mob_w * (mobility_side(true) - mobility_side(false));
-
-    // Tempo
+    // Tempo - bonus for side to move (add to white's score before flipping perspective)
     score += config.tempo_bonus;
 
+    // Return score from side-to-move perspective
     return pos.whiteToMove ? score : -score;
 }

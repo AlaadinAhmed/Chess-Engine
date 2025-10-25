@@ -2,7 +2,7 @@ build/
 .cache/
 docs/html/
 docs/latex/
-
+/Stockfish
 # Ignore generated files
 commands.txt
 engine_stderr.txt

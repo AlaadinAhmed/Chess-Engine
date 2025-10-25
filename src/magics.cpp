@@ -1,6 +1,7 @@
 #include "magics.hpp"
 #include "magics_consts.hpp"
 #include "globals.hpp"
+#include "utils.hpp"
 
 void init_magics() {
     // This function is intentionally left empty because the magic numbers are pre-calculated.

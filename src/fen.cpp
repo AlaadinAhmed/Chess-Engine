@@ -36,6 +36,9 @@ void parseFEN(Position &pos, std::string fen){
                 case 'b': pos.BlackBishops |= mask; break;
                 case 'q': pos.BlackQueen |= mask; break;
                 case 'k': pos.BlackKing |= mask; break;
+                default:
+                    std::cout << "info string Error parsing FEN: Invalid character in board string: " << c << std::endl;
+                    return;
             }
             current_file++;
         }
@@ -50,19 +53,45 @@ void parseFEN(Position &pos, std::string fen){
             case 'Q': pos.castelingRights |= 2; break;
             case 'k': pos.castelingRights |= 4; break;
             case 'q': pos.castelingRights |= 8; break;
+            case '-': break;
+            default:
+                std::cout << "info string Error parsing FEN: Invalid character in castling rights string: " << c << std::endl;
+                return;
         }
     }
 
     if (en_passant_str == "-") {
         pos.enPassant = 0;
     } else {
-        int file = en_passant_str[0] - 'a';
-        int rank = en_passant_str[1] - '1';
-        pos.enPassant = rank * 8 + file;
+        if (en_passant_str.length() == 2) {
+            int file = en_passant_str[0] - 'a';
+            int rank = en_passant_str[1] - '1';
+            if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
+                pos.enPassant = rank * 8 + file;
+            } else {
+                std::cout << "info string Error parsing FEN: Invalid en passant square: " << en_passant_str << std::endl;
+                return;
+            }
+        } else {
+            std::cout << "info string Error parsing FEN: Invalid en passant string: " << en_passant_str << std::endl;
+            return;
+        }
     }
 
-    pos.move50rule = std::stoi(halfmove_clock_str);
-    pos.move = std::stoi(fullmove_number_str);
+    try {
+        pos.move50rule = std::stoi(halfmove_clock_str);
+    } catch (const std::invalid_argument& ia) {
+        std::cout << "info string Error parsing FEN: Invalid halfmove clock value: " << halfmove_clock_str << std::endl;
+        return;
+    }
+
+    try {
+        pos.move = std::stoi(fullmove_number_str);
+    } catch (const std::invalid_argument& ia) {
+        std::cout << "info string Error parsing FEN: Invalid fullmove number value: " << fullmove_number_str << std::endl;
+        return;
+    }
+
 
     pos.BlackoccupiedSquares = pos.BlackBishops | pos.BlackKing | pos.BlackKnights | pos.BlackPawns | pos.BlackQueen | pos.BlackRooks;
     pos.WhiteoccupiedSquares = pos.WhiteBishops | pos.WhiteKing | pos.WhiteKnights | pos.WhitePawns | pos.WhiteQueen | pos.WhiteRooks;
