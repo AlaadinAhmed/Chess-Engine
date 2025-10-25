@@ -13,10 +13,10 @@
 
 /// @brief A flag to indicate if the engine is currently in a search. Used for time management.
 extern std::atomic<bool> searching;
-/// @brief A counter for the total number of nodes (positions) evaluated during a search.
-extern long long nodes_searched;
-/// @brief The maximum selective depth reached during quiescence search.
-extern int seldepth;
+/// @brief A counter for the total number of nodes (positions) evaluated during a search (thread-safe).
+extern std::atomic<long long> nodes_searched;
+/// @brief The maximum selective depth reached during quiescence search (thread-safe).
+extern std::atomic<int> seldepth;
 
 /**
  * @brief Performs a quiescence search to stabilize the evaluation.
