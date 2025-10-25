@@ -15,7 +15,19 @@ Move uci_to_move(std::string uci_move) {
     int to_rank = uci_move[3] - '1';
     int from = from_rank * 8 + from_file;
     int to = to_rank * 8 + to_file;
-    return {from, to};
+    
+    Pieces promotion = NO_PIECE;
+    if (uci_move.length() == 5) {
+        // Determine color based on destination rank
+        bool is_white = (to_rank == 7); // White promotes on rank 8 (index 7)
+        char promo_char = uci_move[4];
+        if (promo_char == 'q') promotion = is_white ? W_QUEEN : B_QUEEN;
+        else if (promo_char == 'r') promotion = is_white ? W_ROOK : B_ROOK;
+        else if (promo_char == 'b') promotion = is_white ? W_BISHOP : B_BISHOP;
+        else if (promo_char == 'n') promotion = is_white ? W_KNIGHT : B_KNIGHT;
+    }
+    
+    return {from, to, promotion};
 }
 
 std::string move_to_uci(Move move) {
@@ -28,6 +40,17 @@ std::string move_to_uci(Move move) {
     uci_move += (char)('1' + from_rank);
     uci_move += (char)('a' + to_file);
     uci_move += (char)('1' + to_rank);
+    
+    if (move.promotion != NO_PIECE) {
+        switch (move.promotion) {
+            case W_QUEEN: case B_QUEEN: uci_move += 'q'; break;
+            case W_ROOK: case B_ROOK: uci_move += 'r'; break;
+            case W_BISHOP: case B_BISHOP: uci_move += 'b'; break;
+            case W_KNIGHT: case B_KNIGHT: uci_move += 'n'; break;
+            default: break;
+        }
+    }
+    
     return uci_move;
 }
 

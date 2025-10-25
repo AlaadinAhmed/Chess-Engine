@@ -426,8 +426,18 @@ void generate_captures(Position &pos, MoveList &move_list) {
             uint64_t moves = GetPawnAttacks(pos, from, true) & opponent_pieces;
             while (moves) {
                 int to = __builtin_ctzll(moves);
-                if (move_list.count < 255) {
-                    move_list.moves[move_list.count++] = {from, to};
+                int to_rank = to / 8;
+                if (to_rank == 7) { // Promotion rank for white
+                    if (move_list.count < 252) { // Need space for 4 promotions
+                        move_list.moves[move_list.count++] = {from, to, W_QUEEN};
+                        move_list.moves[move_list.count++] = {from, to, W_ROOK};
+                        move_list.moves[move_list.count++] = {from, to, W_BISHOP};
+                        move_list.moves[move_list.count++] = {from, to, W_KNIGHT};
+                    }
+                } else {
+                    if (move_list.count < 255) {
+                        move_list.moves[move_list.count++] = {from, to};
+                    }
                 }
                 moves &= moves - 1;
             }
@@ -502,8 +512,18 @@ void generate_captures(Position &pos, MoveList &move_list) {
             uint64_t moves = GetPawnAttacks(pos, from, false) & opponent_pieces;
             while (moves) {
                 int to = __builtin_ctzll(moves);
-                if (move_list.count < 255) {
-                    move_list.moves[move_list.count++] = {from, to};
+                int to_rank = to / 8;
+                if (to_rank == 0) { // Promotion rank for black
+                    if (move_list.count < 252) { // Need space for 4 promotions
+                        move_list.moves[move_list.count++] = {from, to, B_QUEEN};
+                        move_list.moves[move_list.count++] = {from, to, B_ROOK};
+                        move_list.moves[move_list.count++] = {from, to, B_BISHOP};
+                        move_list.moves[move_list.count++] = {from, to, B_KNIGHT};
+                    }
+                } else {
+                    if (move_list.count < 255) {
+                        move_list.moves[move_list.count++] = {from, to};
+                    }
                 }
                 moves &= moves - 1;
             }
@@ -584,8 +604,18 @@ void generate_quiet_moves(Position &pos, MoveList &move_list) {
             uint64_t moves = GetPawnMoves(pos, from, true) & empty_or_opponent & ~pos.BlackoccupiedSquares;
             while (moves) {
                 int to = __builtin_ctzll(moves);
-                if (move_list.count < 255) {
-                    move_list.moves[move_list.count++] = {from, to};
+                int to_rank = to / 8;
+                if (to_rank == 7) { // Promotion rank for white
+                    if (move_list.count < 252) { // Need space for 4 promotions
+                        move_list.moves[move_list.count++] = {from, to, W_QUEEN};
+                        move_list.moves[move_list.count++] = {from, to, W_ROOK};
+                        move_list.moves[move_list.count++] = {from, to, W_BISHOP};
+                        move_list.moves[move_list.count++] = {from, to, W_KNIGHT};
+                    }
+                } else {
+                    if (move_list.count < 255) {
+                        move_list.moves[move_list.count++] = {from, to};
+                    }
                 }
                 moves &= moves - 1;
             }
@@ -660,8 +690,18 @@ void generate_quiet_moves(Position &pos, MoveList &move_list) {
             uint64_t moves = GetPawnMoves(pos, from, false) & empty_or_opponent & ~pos.WhiteoccupiedSquares;
             while (moves) {
                 int to = __builtin_ctzll(moves);
-                if (move_list.count < 255) {
-                    move_list.moves[move_list.count++] = {from, to};
+                int to_rank = to / 8;
+                if (to_rank == 0) { // Promotion rank for black
+                    if (move_list.count < 252) { // Need space for 4 promotions
+                        move_list.moves[move_list.count++] = {from, to, B_QUEEN};
+                        move_list.moves[move_list.count++] = {from, to, B_ROOK};
+                        move_list.moves[move_list.count++] = {from, to, B_BISHOP};
+                        move_list.moves[move_list.count++] = {from, to, B_KNIGHT};
+                    }
+                } else {
+                    if (move_list.count < 255) {
+                        move_list.moves[move_list.count++] = {from, to};
+                    }
                 }
                 moves &= moves - 1;
             }

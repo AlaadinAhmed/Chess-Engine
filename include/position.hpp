@@ -58,7 +58,7 @@ inline PieceType get_piece_type(Pieces p) {
 struct Move {
     int from; ///< The starting square of the move (0-63).
     int to;   ///< The ending square of the move (0-63).
-    Pieces promotion; ///< If the move is a promotion, this holds the piece to promote to. Defaults to NO_PIECE.
+    Pieces promotion = NO_PIECE; ///< If the move is a promotion, this holds the piece to promote to. Defaults to NO_PIECE.
     int score = 0; ///< A score for move ordering.
 };
 
