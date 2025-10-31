@@ -7,6 +7,7 @@ docs/latex/
 commands.txt
 engine_stderr.txt
 engine_stdout.txt
-
+.Obsidian/
+.out/
 .gemini/
 gha-creds-*.json

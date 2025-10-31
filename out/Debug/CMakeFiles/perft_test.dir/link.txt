@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/perft_test.dir/link.d CMakeFiles/perft_test.dir/tests/perft_test.cpp.o -o bin/perft_test  lib/libgtest_main.a lib/libOctoKnightLib.a -lpthread lib/libgtest.a

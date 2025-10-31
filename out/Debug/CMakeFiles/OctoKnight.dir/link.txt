@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/OctoKnight.dir/link.d CMakeFiles/OctoKnight.dir/src/main.cpp.o -o bin/OctoKnight  lib/libOctoKnightLib.a -lpthread

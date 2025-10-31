@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/debug_movegen.dir/link.d CMakeFiles/debug_movegen.dir/tests/debug_movegen.cpp.o -o bin/debug_movegen  lib/libgtest_main.a lib/libOctoKnightLib.a -lpthread lib/libgtest.a

@@ -1,0 +1,182 @@
+[
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/bitboard.cpp.o -c /home/aladdin/Chess-Engine/src/bitboard.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/bitboard.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/bitboard.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/eval.cpp.o -c /home/aladdin/Chess-Engine/src/eval.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/eval.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/eval.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/fen.cpp.o -c /home/aladdin/Chess-Engine/src/fen.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/fen.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/fen.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/globals.cpp.o -c /home/aladdin/Chess-Engine/src/globals.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/globals.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/globals.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/hash.cpp.o -c /home/aladdin/Chess-Engine/src/hash.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/hash.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/hash.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/magics.cpp.o -c /home/aladdin/Chess-Engine/src/magics.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/magics.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/magics.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/movegen.cpp.o -c /home/aladdin/Chess-Engine/src/movegen.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/movegen.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/movegen.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/movepick.cpp.o -c /home/aladdin/Chess-Engine/src/movepick.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/movepick.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/movepick.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/position.cpp.o -c /home/aladdin/Chess-Engine/src/position.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/position.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/position.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/search.cpp.o -c /home/aladdin/Chess-Engine/src/search.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/search.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/search.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/tt.cpp.o -c /home/aladdin/Chess-Engine/src/tt.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/tt.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/tt.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnightLib.dir/src/utils.cpp.o -c /home/aladdin/Chess-Engine/src/utils.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/utils.cpp",
+  "output": "CMakeFiles/OctoKnightLib.dir/src/utils.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -g -g -std=gnu++17 -o CMakeFiles/OctoKnight.dir/src/main.cpp.o -c /home/aladdin/Chess-Engine/src/main.cpp",
+  "file": "/home/aladdin/Chess-Engine/src/main.cpp",
+  "output": "CMakeFiles/OctoKnight.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/comprehensive_debug.dir/tests/comprehensive_debug.cpp.o -c /home/aladdin/Chess-Engine/tests/comprehensive_debug.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/comprehensive_debug.cpp",
+  "output": "CMakeFiles/comprehensive_debug.dir/tests/comprehensive_debug.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/debug_a3b4.dir/tests/debug_a3b4.cpp.o -c /home/aladdin/Chess-Engine/tests/debug_a3b4.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/debug_a3b4.cpp",
+  "output": "CMakeFiles/debug_a3b4.dir/tests/debug_a3b4.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/debug_movegen.dir/tests/debug_movegen.cpp.o -c /home/aladdin/Chess-Engine/tests/debug_movegen.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/debug_movegen.cpp",
+  "output": "CMakeFiles/debug_movegen.dir/tests/debug_movegen.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/eval_test.dir/tests/eval_test.cpp.o -c /home/aladdin/Chess-Engine/tests/eval_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/eval_test.cpp",
+  "output": "CMakeFiles/eval_test.dir/tests/eval_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/fen_illegal_move_test.dir/tests/fen_illegal_move_test.cpp.o -c /home/aladdin/Chess-Engine/tests/fen_illegal_move_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/fen_illegal_move_test.cpp",
+  "output": "CMakeFiles/fen_illegal_move_test.dir/tests/fen_illegal_move_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/fen_test.dir/tests/fen_test.cpp.o -c /home/aladdin/Chess-Engine/tests/fen_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/fen_test.cpp",
+  "output": "CMakeFiles/fen_test.dir/tests/fen_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/illegal_move_debug.dir/tests/illegal_move_debug.cpp.o -c /home/aladdin/Chess-Engine/tests/illegal_move_debug.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/illegal_move_debug.cpp",
+  "output": "CMakeFiles/illegal_move_debug.dir/tests/illegal_move_debug.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/illegal_move_test.dir/tests/illegal_move_test.cpp.o -c /home/aladdin/Chess-Engine/tests/illegal_move_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/illegal_move_test.cpp",
+  "output": "CMakeFiles/illegal_move_test.dir/tests/illegal_move_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/movegen_test.dir/tests/movegen_test.cpp.o -c /home/aladdin/Chess-Engine/tests/movegen_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/movegen_test.cpp",
+  "output": "CMakeFiles/movegen_test.dir/tests/movegen_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/perft_test.dir/tests/perft_test.cpp.o -c /home/aladdin/Chess-Engine/tests/perft_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/perft_test.cpp",
+  "output": "CMakeFiles/perft_test.dir/tests/perft_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/simple_search_test.dir/tests/simple_search_test.cpp.o -c /home/aladdin/Chess-Engine/tests/simple_search_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/simple_search_test.cpp",
+  "output": "CMakeFiles/simple_search_test.dir/tests/simple_search_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/test_runner.dir/tests/test_runner.cpp.o -c /home/aladdin/Chess-Engine/tests/test_runner.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/test_runner.cpp",
+  "output": "CMakeFiles/test_runner.dir/tests/test_runner.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=gnu++17 -o CMakeFiles/utils_test.dir/tests/utils_test.cpp.o -c /home/aladdin/Chess-Engine/tests/utils_test.cpp",
+  "file": "/home/aladdin/Chess-Engine/tests/utils_test.cpp",
+  "output": "CMakeFiles/utils_test.dir/tests/utils_test.cpp.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug/extern/googletest/googlemock",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -I/home/aladdin/Chess-Engine/extern/googletest/googlemock/include -I/home/aladdin/Chess-Engine/extern/googletest/googlemock -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=c++17 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gmock.dir/src/gmock-all.cc.o -c /home/aladdin/Chess-Engine/extern/googletest/googlemock/src/gmock-all.cc",
+  "file": "/home/aladdin/Chess-Engine/extern/googletest/googlemock/src/gmock-all.cc",
+  "output": "extern/googletest/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug/extern/googletest/googlemock",
+  "command": "/usr/bin/c++  -isystem /home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googlemock/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googlemock -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=c++17 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gmock_main.dir/src/gmock_main.cc.o -c /home/aladdin/Chess-Engine/extern/googletest/googlemock/src/gmock_main.cc",
+  "file": "/home/aladdin/Chess-Engine/extern/googletest/googlemock/src/gmock_main.cc",
+  "output": "extern/googletest/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug/extern/googletest/googletest",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -I/home/aladdin/Chess-Engine/extern/googletest/googletest/include -I/home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=c++17 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gtest.dir/src/gtest-all.cc.o -c /home/aladdin/Chess-Engine/extern/googletest/googletest/src/gtest-all.cc",
+  "file": "/home/aladdin/Chess-Engine/extern/googletest/googletest/src/gtest-all.cc",
+  "output": "extern/googletest/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o"
+},
+{
+  "directory": "/home/aladdin/Chess-Engine/out/Debug/extern/googletest/googletest",
+  "command": "/usr/bin/c++  -I/home/aladdin/Chess-Engine/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest/include -isystem /home/aladdin/Chess-Engine/extern/googletest/googletest -g -g -std=c++17 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gtest_main.dir/src/gtest_main.cc.o -c /home/aladdin/Chess-Engine/extern/googletest/googletest/src/gtest_main.cc",
+  "file": "/home/aladdin/Chess-Engine/extern/googletest/googletest/src/gtest_main.cc",
+  "output": "extern/googletest/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o"
+}
+]

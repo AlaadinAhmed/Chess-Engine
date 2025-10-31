@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/illegal_move_debug.dir/link.d CMakeFiles/illegal_move_debug.dir/tests/illegal_move_debug.cpp.o -o bin/illegal_move_debug  lib/libgtest_main.a lib/libOctoKnightLib.a -lpthread lib/libgtest.a

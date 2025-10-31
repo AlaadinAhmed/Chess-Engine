@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/test_runner.dir/link.d CMakeFiles/test_runner.dir/tests/test_runner.cpp.o -o bin/test_runner  lib/libgtest_main.a lib/libOctoKnightLib.a -lpthread lib/libgtest.a

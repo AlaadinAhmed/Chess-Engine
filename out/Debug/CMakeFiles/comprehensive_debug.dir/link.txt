@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/comprehensive_debug.dir/link.d CMakeFiles/comprehensive_debug.dir/tests/comprehensive_debug.cpp.o -o bin/comprehensive_debug  lib/libgtest_main.a lib/libOctoKnightLib.a -lpthread lib/libgtest.a

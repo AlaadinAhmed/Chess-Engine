@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -g -Wl,--dependency-file=CMakeFiles/simple_search_test.dir/link.d CMakeFiles/simple_search_test.dir/tests/simple_search_test.cpp.o -o bin/simple_search_test  lib/libgtest_main.a lib/libOctoKnightLib.a -lpthread lib/libgtest.a

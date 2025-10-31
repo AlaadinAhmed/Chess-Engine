@@ -1,0 +1,10 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/aladdin/Chess-Engine/out/Debug/cmake_install.cmake",
+		"/home/aladdin/Chess-Engine/out/Debug/extern/googletest/cmake_install.cmake",
+		"/home/aladdin/Chess-Engine/out/Debug/extern/googletest/googlemock/cmake_install.cmake",
+		"/home/aladdin/Chess-Engine/out/Debug/extern/googletest/googletest/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
