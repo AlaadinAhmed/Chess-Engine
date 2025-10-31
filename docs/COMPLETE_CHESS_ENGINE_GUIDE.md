@@ -1,23 +1,240 @@
-# The Complete Guide to Writing a Chess Engine
+/**
+@page chess_engine_guide The Complete Guide to Writing a Chess Engine
 
-**A comprehensive, step-by-step tutorial covering everything from basic concepts to advanced Stockfish techniques**
+@tableofcontents
+
+@section guide_intro Introduction
+
+A chess engine is a sophisticated computer program that plays chess at superhuman levels. This comprehensive guide will teach you how to build one from scratch, explaining every concept in detail with diagrams, examples, and complete code.
+
+@subsection what_is_engine What is a Chess Engine?
+
+A chess engine consists of several interconnected components:
+
+@dot "Chess Engine Architecture"
+digraph engine {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    
+    UCI [label="UCI Protocol\n(Communication)", fillcolor=lightgreen];
+    Board [label="Board Representation\n(Bitboards)", fillcolor=lightyellow];
+    MoveGen [label="Move Generator\n(Legal Moves)", fillcolor=lightcyan];
+    Eval [label="Evaluation Function\n(Position Score)", fillcolor=pink];
+    Search [label="Search Algorithm\n(Find Best Move)", fillcolor=orange];
+    TT [label="Transposition Table\n(Cache)", fillcolor=violet];
+    
+    UCI -> Board [label="Set Position"];
+    UCI -> Search [label="Start Search"];
+    Board -> MoveGen [label="Generate"];
+    MoveGen -> Search [label="Provide Moves"];
+    Board -> Eval [label="Evaluate"];
+    Eval -> Search [label="Return Score"];
+    Search -> TT [label="Store/Lookup"];
+    Search -> UCI [label="Best Move"];
+}
+@enddot
+
+**Core Components:**
+
+1. **Board Representation** - How to store the position efficiently (pieces, castling rights, etc.)
+2. **Move Generation** - Finding all legal moves in any position
+3. **Position Evaluation** - Determining who is winning and by how much
+4. **Search Algorithm** - Looking ahead to find the best move
+5. **UCI Protocol** - Communicating with chess GUIs
+6. **Transposition Table** - Caching previously searched positions
+
+@subsection what_you_learn What You'll Learn
+
+By the end of this guide, you'll understand:
+- ✅ Every line of code in a chess engine
+- ✅ Why each technique is necessary
+- ✅ How Stockfish (the world's strongest engine) works
+- ✅ How to write your own competitive chess engine
+- ✅ Advanced techniques like NNUE neural networks
+
+@subsection prerequisites Prerequisites
+
+| Category | Requirement | Details |
+|----------|-------------|---------|
+| **Programming** | Intermediate C++ | Classes, templates, STL |
+| **Chess** | Basic rules | How pieces move, check, checkmate |
+| **Math** | Bitwise operations | AND, OR, XOR, shifts |
+| **Data Structures** | Arrays, hash tables | Basic CS knowledge |
+
+@subsection tools_needed Tools You'll Need
+
+@code{.bash}
+# Compiler with C++17 support
+g++ --version  # GCC 7+ or Clang 5+
+
+# Chess GUI for testing
+# Download Arena or Cute Chess GUI
+
+# Version control
+git --version
+
+# Optional: Graphical debugger
+gdb --version
+@endcode
 
 ---
 
-## Table of Contents
+@section chapter1 Chapter 1: Understanding Chess Programming Fundamentals
 
-1. [Introduction](#introduction)
-2. [Chapter 1: Understanding Chess Programming Fundamentals](#chapter-1-understanding-chess-programming-fundamentals)
-3. [Chapter 2: Board Representation - The Foundation](#chapter-2-board-representation---the-foundation)
-4. [Chapter 3: Move Generation - Finding All Legal Moves](#chapter-3-move-generation---finding-all-legal-moves)
-5. [Chapter 4: Making and Unmaking Moves](#chapter-4-making-and-unmaking-moves)
-6. [Chapter 5: Position Evaluation](#chapter-5-position-evaluation)
-7. [Chapter 6: Search Algorithms](#chapter-6-search-algorithms)
-8. [Chapter 7: Advanced Search Techniques](#chapter-7-advanced-search-techniques)
-9. [Chapter 8: UCI Protocol](#chapter-8-uci-protocol)
-10. [Chapter 9: Testing and Debugging](#chapter-9-testing-and-debugging)
-11. [Chapter 10: Stockfish Techniques and NNUE](#chapter-10-stockfish-techniques-and-nnue)
-12. [Appendix: Complete Code Examples](#appendix-complete-code-examples)
+@subsection chess_challenge 1.1 The Chess Programming Challenge
+
+@subsubsection search_space_problem The Search Space Explosion
+
+Chess has an **enormous** search space. Let's visualize this:
+
+@dot "Search Space Growth"
+digraph search_growth {
+    rankdir=TB;
+    node [shape=ellipse, style=filled];
+    
+    start [label="Starting Position", fillcolor=lightgreen];
+    ply1 [label="Depth 1\n~20 positions", fillcolor=lightyellow];
+    ply2 [label="Depth 2\n~400 positions", fillcolor=orange];
+    ply3 [label="Depth 3\n~8,902 positions", fillcolor=red];
+    ply4 [label="Depth 4\n~197,281 positions", fillcolor=darkred, fontcolor=white];
+    ply5 [label="Depth 5\n~4,865,609 positions", fillcolor=purple, fontcolor=white];
+    
+    start -> ply1 [label="×20"];
+    ply1 -> ply2 [label="×20"];
+    ply2 -> ply3 [label="×22"];
+    ply3 -> ply4 [label="×22"];
+    ply4 -> ply5 [label="×25"];
+}
+@enddot
+
+**Growth Statistics:**
+
+| Depth | Positions | Branching Factor |
+|-------|-----------|------------------|
+| 0 | 1 | - |
+| 1 | 20 | 20 |
+| 2 | 400 | 20 |
+| 3 | 8,902 | 22.25 |
+| 4 | 197,281 | 22.16 |
+| 5 | 4,865,609 | 24.67 |
+| 10 | ~69,352,859,712 | ~30 average |
+
+@note The total number of possible chess games is estimated at \f$10^{120}\f$, which is more than the number of atoms in the observable universe (\f$10^{80}\f$)!
+
+@subsubsection complexity_factors Complexity Factors
+
+**1. Branching Factor**
+
+@dot "Average Branching Factor by Game Phase"
+digraph branching {
+    node [shape=box];
+    
+    opening [label="Opening\n~35 moves", fillcolor=lightgreen, style=filled];
+    middlegame [label="Middlegame\n~40 moves", fillcolor=yellow, style=filled];
+    endgame [label="Endgame\n~15 moves", fillcolor=lightblue, style=filled];
+}
+@enddot
+
+**2. Time Constraints**
+
+Typical time controls:
+- **Blitz**: 3-5 minutes per game → ~2 seconds per move
+- **Rapid**: 15 minutes per game → ~10 seconds per move  
+- **Classical**: 2 hours per game → ~1 minute per move
+
+**3. Evaluation Complexity**
+
+@dot "Position Complexity"
+digraph eval_complexity {
+    rankdir=LR;
+    node [shape=box, style=filled];
+    
+    simple [label="Simple Position\nMaterial only", fillcolor=lightgreen];
+    moderate [label="Moderate Position\nMaterial + Position", fillcolor=yellow];
+    complex [label="Complex Position\nFull evaluation", fillcolor=orange];
+    tactical [label="Tactical Position\nDeep calculation", fillcolor=red];
+    
+    simple -> moderate -> complex -> tactical;
+}
+@enddot
+
+@subsubsection solution_overview The Solution: Selective Search
+
+Instead of searching everything, we use smart techniques:
+
+@dot "Search Optimization Strategy"
+digraph optimization {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    
+    full [label="Full Minimax\n~10^15 nodes at depth 10"];
+    alphabeta [label="Alpha-Beta Pruning\n~10^9 nodes (1000x faster!)"];
+    tt [label="+ Transposition Table\n~10^8 nodes"];
+    moveorder [label="+ Move Ordering\n~10^7 nodes"];
+    pruning [label="+ Advanced Pruning\n~10^6 nodes"];
+    
+    full -> alphabeta [label="Basic optimization"];
+    alphabeta -> tt [label="Cache results"];
+    tt -> moveorder [label="Search best first"];
+    moveorder -> pruning [label="Skip bad moves"];
+}
+@enddot
+
+**Key Techniques:**
+1. **Alpha-Beta Pruning** - Skip provably bad branches (1000x speedup!)
+2. **Transposition Tables** - Cache positions we've seen before  
+3. **Move Ordering** - Search best moves first (better pruning)
+4. **Selective Extensions** - Search deeper in interesting positions
+5. **Pruning Heuristics** - Skip obviously bad moves
+
+@subsection core_concepts 1.2 Core Concepts
+
+@subsubsection ply_vs_move Concept 1: Ply vs Move
+
+Understanding the difference is crucial for implementing search:
+
+@startuml "Ply vs Move Illustration"
+!define LIGHTBLUE #E8F4F8
+!define LIGHTGREEN #E8F8E8
+
+participant "White" as W <<LIGHTGREEN>>
+participant "Board" as B
+participant "Black" as Bl <<LIGHTBLUE>>
+
+W -> B: e2-e4
+note right: Ply 1 (White's turn)\nMove 1 start
+B --> W: Position after e4
+
+Bl -> B: e7-e5  
+note right: Ply 2 (Black's turn)\nMove 1 complete
+B --> Bl: Position after e5
+
+W -> B: Ng1-f3
+note right: Ply 3\nMove 2 start
+B --> W: Position after Nf3
+@enduml
+
+**Key Differences:**
+
+| Concept | Definition | Example |
+|---------|------------|---------|
+| **Ply** | One player's turn | White plays e4 = 1 ply |
+| **Move** | Both players move | 1. e4 e5 = 1 move (2 plies) |
+| **Depth** | How many plies to search | Depth 6 = 3 full moves |
+
+@code{.cpp}
+// In search code:
+int search(Position& pos, int depth) {
+    if (depth == 0) {
+        return evaluate(pos);  // Reached depth limit
+    }
+    
+    // depth counts PLIES not moves
+    // depth=10 means looking ahead 5 full moves
+}
+@endcode
+
+@warning Always use **ply** as the unit of depth in search. Depth 10 = 10 plies = 5 full moves!
 
 ---
 
