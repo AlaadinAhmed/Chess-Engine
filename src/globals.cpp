@@ -2,7 +2,7 @@
 
 TranspositionTable tt(700);
 thread_local int history_ply = 0;
-bool debug_mode = false; // Set debug mode to true for debugging move generation
+bool debug_mode = true; // Set debug mode to true for debugging move generation
 bool ponder_mode = false;
 bool own_book_enabled = false;
 std::string book_path = "book.txt";

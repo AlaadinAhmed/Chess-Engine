@@ -107,14 +107,4 @@ CMakeFiles/OctoKnightLib.dir/src/magics.cpp.o: \
  /usr/include/c++/15.2.1/bits/uses_allocator.h \
  /usr/include/c++/15.2.1/bits/uses_allocator_args.h \
  /usr/include/c++/15.2.1/tuple \
- /home/aladdin/Chess-Engine/include/magics_consts.hpp \
- /home/aladdin/Chess-Engine/include/globals.hpp \
- /home/aladdin/Chess-Engine/include/tt.hpp \
- /home/aladdin/Chess-Engine/include/movegen.hpp \
- /home/aladdin/Chess-Engine/include/bitboard.hpp \
- /usr/include/c++/15.2.1/vector \
- /usr/include/c++/15.2.1/bits/stl_uninitialized.h \
- /usr/include/c++/15.2.1/bits/stl_vector.h \
- /usr/include/c++/15.2.1/bits/stl_bvector.h \
- /usr/include/c++/15.2.1/bits/vector.tcc \
- /home/aladdin/Chess-Engine/include/utils.hpp
+ /home/aladdin/Chess-Engine/include/magics_consts.hpp

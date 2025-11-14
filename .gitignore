@@ -9,5 +9,6 @@ engine_stderr.txt
 engine_stdout.txt
 .Obsidian/
 .out/
+out/
 .gemini/
 gha-creds-*.json
