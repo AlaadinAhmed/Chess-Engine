@@ -12,6 +12,10 @@
 #include "utils.hpp"
 
 uint64_t kingAttacks[64];
+uint64_t whitePawnAttacks[64];
+uint64_t blackPawnAttacks[64];
+uint64_t whitePawnMoves[64];
+uint64_t blackPawnMoves[64];
 
 void initKingAttacks() {
     for (int square = 0; square < 64; ++square) {
@@ -26,6 +30,53 @@ void initKingAttacks() {
         if (r > 0 && f < 7) kingAttacks[square] |= (1ULL << (square - 7));
         if (r < 7 && f > 0) kingAttacks[square] |= (1ULL << (square + 7));
         if (r < 7 && f < 7) kingAttacks[square] |= (1ULL << (square + 9));
+    }
+}
+
+void initPawnAttacks() {
+    for (int square = 0; square < 64; ++square) {
+        whitePawnAttacks[square] = 0ULL;
+        blackPawnAttacks[square] = 0ULL;
+        uint64_t bitboard = 1ULL << square;
+        int f = square % 8;
+        int r = square / 8;
+        
+        // White pawn attacks (forward = up the board)
+        if (r < 7) {
+            if (f > 0) whitePawnAttacks[square] |= (bitboard << 7);
+            if (f < 7) whitePawnAttacks[square] |= (bitboard << 9);
+        }
+        
+        // Black pawn attacks (forward = down the board)
+        if (r > 0) {
+            if (f > 0) blackPawnAttacks[square] |= (bitboard >> 9);
+            if (f < 7) blackPawnAttacks[square] |= (bitboard >> 7);
+        }
+    }
+}
+
+void initPawnMoves() {
+    for (int square = 0; square < 64; ++square) {
+        whitePawnMoves[square] = 0ULL;
+        blackPawnMoves[square] = 0ULL;
+        uint64_t bitboard = 1ULL << square;
+        int r = square / 8;
+        
+        // White pawn moves (single and double push)
+        if (r < 7) {
+            whitePawnMoves[square] |= (bitboard << 8);
+            if (r == 1) { // Starting rank for white pawns
+                whitePawnMoves[square] |= (bitboard << 16);
+            }
+        }
+        
+        // Black pawn moves (single and double push)
+        if (r > 0) {
+            blackPawnMoves[square] |= (bitboard >> 8);
+            if (r == 6) { // Starting rank for black pawns
+                blackPawnMoves[square] |= (bitboard >> 16);
+            }
+        }
     }
 }
 
@@ -364,37 +415,32 @@ uint64_t GetKingMoves(const Position &pos) {
 }
 
 uint64_t GetPawnMoves(const Position &pos, int square, bool by_white) {
-    uint64_t moves = 0;
+    uint64_t moves = by_white ? whitePawnMoves[square] : blackPawnMoves[square];
     uint64_t bitboard = 1ULL << square;
+    
+    // Filter out blocked moves
     if (by_white) {
-        if (!(pos.occupiedSquares & (bitboard << 8))) {
-            moves |= (bitboard << 8);
-            if ((bitboard & Rank2) && !(pos.occupiedSquares & (bitboard << 16))) {
-                moves |= (bitboard << 16);
-            }
+        // Check if single push is blocked
+        if (pos.occupiedSquares & (bitboard << 8)) {
+            moves = 0; // Both single and double push blocked
+        } else if (pos.occupiedSquares & (bitboard << 16)) {
+            // Double push blocked but single push is ok
+            moves &= ~(bitboard << 16);
         }
     } else {
-        if (!(pos.occupiedSquares & (bitboard >> 8))) {
-            moves |= (bitboard >> 8);
-            if ((bitboard & Rank7) && !(pos.occupiedSquares & (bitboard >> 16))) {
-                moves |= (bitboard >> 16);
-            }
+        // Check if single push is blocked
+        if (pos.occupiedSquares & (bitboard >> 8)) {
+            moves = 0; // Both single and double push blocked
+        } else if (pos.occupiedSquares & (bitboard >> 16)) {
+            // Double push blocked but single push is ok
+            moves &= ~(bitboard >> 16);
         }
     }
     return moves;
 }
 
 uint64_t GetPawnAttacks(const Position &pos, int square, bool by_white) {
-    uint64_t attacks = 0;
-    uint64_t bitboard = 1ULL << square;
-    if (by_white) {
-        if ((bitboard & ~FileA)) attacks |= (bitboard << 7);
-        if ((bitboard & ~FileH)) attacks |= (bitboard << 9);
-    } else {
-        if ((bitboard & ~FileA)) attacks |= (bitboard >> 9);
-        if ((bitboard & ~FileH)) attacks |= (bitboard >> 7);
-    }
-    return attacks;
+    return by_white ? whitePawnAttacks[square] : blackPawnAttacks[square];
 }
 
 void generate_moves(Position &pos, MoveList &move_list) {

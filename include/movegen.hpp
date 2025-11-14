@@ -135,12 +135,28 @@ void generate_captures(Position &pos, MoveList &move_list);
 void generate_quiet_moves(Position &pos, MoveList &move_list);
 
 extern uint64_t kingAttacks[64];
+extern uint64_t whitePawnAttacks[64];
+extern uint64_t blackPawnAttacks[64];
+extern uint64_t whitePawnMoves[64];
+extern uint64_t blackPawnMoves[64];
 
 /**
  * @brief Initializes pre-calculated attack tables for kings.
  * This should be called once at program startup.
  */
 void initKingAttacks();
+
+/**
+ * @brief Initializes pre-calculated attack tables for pawns.
+ * This should be called once at program startup.
+ */
+void initPawnAttacks();
+
+/**
+ * @brief Initializes pre-calculated move tables for pawns (single and double pushes).
+ * This should be called once at program startup.
+ */
+void initPawnMoves();
 
 /**
  * @brief Stores all necessary information to undo a move.

@@ -1,25 +1,16 @@
-#include "bitboard.hpp"
-#include "eval.hpp"
-#include "fen.hpp"
 #include "globals.hpp"
 #include "hash.hpp"
-#include "history.hpp"
-#include "magics.hpp"
 #include "movegen.hpp"
-#include "movepick.hpp"
 #include "position.hpp"
 #include "print.hpp"
 #include "search.hpp"
 #include "tt.hpp"
 #include "utils.hpp"
-
-#include "utils.hpp"
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <thread>
-#include <vector>
-#include <mutex>
 
 std::mutex cout_mutex;
 
@@ -51,7 +42,6 @@ void uci_loop() {
         searching = false;
         search_thread.join();
       }
-      tt.clear(); // Clear transposition table for new game
       pos.setStartingPosition(); // Reset to starting position
     } else if (token == "setoption") {
       std::string name_token, value_token;
@@ -102,7 +92,7 @@ void uci_loop() {
         searching = false;
         search_thread.join();
       }
-      
+
       std::string go_params;
       std::getline(iss, go_params);
       long long move_time = -1;
@@ -117,7 +107,7 @@ void uci_loop() {
         }
       }
       searching = true;
-      
+
       // Launch search in a separate thread so we can handle stop/quit
       // Make a copy of position for the search thread
       Position pos_copy = pos;
@@ -142,7 +132,7 @@ void uci_loop() {
       break;
     }
   }
-  
+
   // Ensure search thread is stopped before exiting
   searching = false;
   if (search_thread.joinable()) {
@@ -153,6 +143,9 @@ void uci_loop() {
 int main() {
   // log_debug("Engine starting...");
   zkey.initKeys();
+  initKingAttacks();
+  initPawnAttacks();
+  initPawnMoves();
   num_threads = std::thread::hardware_concurrency();
   uci_loop();
   log_debug("Engine finished.");
