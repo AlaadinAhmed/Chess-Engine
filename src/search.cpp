@@ -135,7 +135,7 @@ void score_moves(MoveList &move_list, Position &pos, Move tt_move) {
     }
 }
 
-int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time) {
+int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time, bool allow_null) {
     log_debug("Entering alpha_beta_search function (current_depth " + std::to_string(current_depth) + ", max_depth " + std::to_string(max_depth) + ")");
 
     // Check if search should stop (check more frequently)
@@ -171,6 +171,23 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
                 best_move = entry->best_move;
                 return beta;
             }
+        }
+    }
+    
+    // Null Move Pruning
+    if (allow_null && current_depth >= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && pos.has_non_pawn_material(pos.whiteToMove)) {
+        uint64_t saved_ep = pos.enPassant;
+        pos.make_null_move();
+        int R = 2;
+        if (current_depth > 6) R = 3;
+        
+        Move null_move_best;
+        int score = -alpha_beta_search(pos, current_depth - 1 - R, max_depth, -beta, -beta + 1, null_move_best, start_time, move_time, false);
+        
+        pos.unmake_null_move(saved_ep);
+        
+        if (score >= beta) {
+            return beta;
         }
     }
 
@@ -241,7 +258,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
             found_legal_move = true;
         }
         Move temp_best_move; // Temporary best move for recursive calls
-        int score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time);
+        int score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true);
         log_debug("Undoing move: " + move_to_uci(current_move));
         undomove(pos, current_move);
         if (score > best_score) {
@@ -288,7 +305,7 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
         Move iteration_best_move;
         history_ply = 0; // ensure clean state per iteration
         seldepth = 0; // Reset seldepth for this iteration (not max_seldepth!)
-        int iteration_score = alpha_beta_search(pos, depth, depth, -50000, 50000, iteration_best_move, start_time, move_time);
+        int iteration_score = alpha_beta_search(pos, depth, depth, -50000, 50000, iteration_best_move, start_time, move_time, true);
 
         if (searching) { // Check if we are still searching (e.g., not stopped by 'stop' command)
             current_best_score = iteration_score;
@@ -434,7 +451,7 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
                 seldepth = 0;
             }
             
-            int iteration_score = alpha_beta_search(local_pos, depth, depth, -1000000, 1000000, iteration_best, start_time, move_time);
+            int iteration_score = alpha_beta_search(local_pos, depth, depth, -1000000, 1000000, iteration_best, start_time, move_time, true);
             
             if (!searching) break;
             

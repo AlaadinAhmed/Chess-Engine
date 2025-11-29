@@ -3,15 +3,22 @@
 #include "fen.hpp"
 #include "search.hpp"
 #include "utils.hpp"
+#include "globals.hpp"
+#include "hash.hpp"
 
 int main() {
+    zkey.initKeys();
+    initKingAttacks();
+    initPawnAttacks();
+    initPawnMoves();
+    debug_mode = false;
     Position pos;
-    parseFEN(pos, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    pos.setStartingPosition();
     
     std::cout << "Testing search with depth 5..." << std::endl;
     
     Move best_move;
-    int score = search(pos, 5, 1000, best_move);
+    int score = search(pos, 7, 5000, best_move);
     
     std::cout << "Search returned: " << move_to_uci(best_move) << " with score " << score << std::endl;
     std::cout << "Move details: from=" << best_move.from << " to=" << best_move.to << std::endl;

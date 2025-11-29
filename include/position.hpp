@@ -140,7 +140,7 @@ struct Position {
   void setFen(const std::string& fen_string);
 
   void make_null_move();
-  void unmake_null_move();
+  void unmake_null_move(uint64_t saved_ep);
   bool has_non_pawn_material(bool side) const;
 
   /**

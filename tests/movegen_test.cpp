@@ -3,7 +3,17 @@
 #include "fen.hpp"
 #include "globals.hpp"
 #include "utils.hpp"
+#include "hash.hpp"
 
+struct Initializer {
+    Initializer() {
+        initKingAttacks();
+        initPawnAttacks();
+        initPawnMoves();
+        zkey.initKeys();
+    }
+};
+Initializer init;
 TEST(MovegenTest, StartingPosition) {
     Position board;
     parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");

@@ -44,11 +44,17 @@ void Position::make_null_move() {
     whiteToMove = !whiteToMove;
 }
 
-void Position::unmake_null_move() {
-    // To undo a null move, we just switch the side back.
-    // The en passant square cannot be restored, but it's not a big deal for NMP.
-    zobrist_key ^= zkey.sideKey;
+void Position::unmake_null_move(uint64_t saved_ep) {
+    // Restore side to move
     whiteToMove = !whiteToMove;
+    zobrist_key ^= zkey.sideKey;
+
+    // Restore en passant square
+    if (saved_ep != 0) {
+        enPassant = saved_ep;
+        int ep_sq = __builtin_ctzll(enPassant);
+        zobrist_key ^= zkey.epKeys[ep_sq % 8];
+    }
 }
 
 bool Position::has_non_pawn_material(bool side) const {
