@@ -4,34 +4,65 @@
 #include "globals.hpp"
 
 struct History {
-    Move killer_moves[MAX_PLY][2];
-    int history_scores[12][64];
+    int history_scores[16][64]; // [piece][to_square]
+    Move killer_moves[2][64];   // [slot][ply]
+    Move counter_moves[64][64]; // [from][to] of previous move -> counter move
 
     History() {
-        for (int i = 0; i < MAX_PLY; i++) {
-            killer_moves[i][0] = {};
-            killer_moves[i][1] = {};
-        }
-        for (int i = 0; i < 12; i++) {
+        clear();
+    }
+
+    void clear() {
+        for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 64; j++) {
                 history_scores[i][j] = 0;
             }
         }
-    }
-
-    void update_killer_move(Move move, int ply) {
-        if (killer_moves[ply][0].from != move.from || killer_moves[ply][0].to != move.to) {
-            killer_moves[ply][1] = killer_moves[ply][0];
-            killer_moves[ply][0] = move;
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 64; j++) {
+                killer_moves[i][j] = Move{}; // Initialize with empty moves
+            }
+        }
+        for (int i = 0; i < 64; i++) {
+            for (int j = 0; j < 64; j++) {
+                counter_moves[i][j] = Move{};
+            }
         }
     }
 
-    void update_history_score(Position &pos, Move move, int depth) {
-        history_scores[get_piece_at(pos, move.from)][move.to] += depth * depth;
+    void update_history_score(const Position &pos, Move move, int depth) {
+        int bonus = depth * depth;
+        history_scores[get_piece_at(pos, move.from)][move.to] += bonus;
+        // Cap the score to avoid overflow (optional but good practice)
+        if (history_scores[get_piece_at(pos, move.from)][move.to] > 100000) {
+             history_scores[get_piece_at(pos, move.from)][move.to] = 100000;
+        }
+    }
+    
+    void update_killer_move(Move move, int ply) {
+        if (ply >= 64) return;
+        if (killer_moves[0][ply].from != move.from || killer_moves[0][ply].to != move.to) {
+            killer_moves[1][ply] = killer_moves[0][ply];
+            killer_moves[0][ply] = move;
+        }
+    }
+    
+    void update_counter_move(Move prev_move, Move move) {
+        if (prev_move.from != 0 || prev_move.to != 0) {
+            counter_moves[prev_move.from][prev_move.to] = move;
+        }
+    }
+    
+    Move get_counter_move(Move prev_move) {
+        if (prev_move.from != 0 || prev_move.to != 0) {
+            return counter_moves[prev_move.from][prev_move.to];
+        }
+        return Move{};
     }
 
     bool is_killer(Move move, int ply) {
-        return (killer_moves[ply][0].from == move.from && killer_moves[ply][0].to == move.to) ||
-               (killer_moves[ply][1].from == move.from && killer_moves[ply][1].to == move.to);
+        if (ply >= 64) return false;
+        return (killer_moves[0][ply].from == move.from && killer_moves[0][ply].to == move.to) ||
+               (killer_moves[1][ply].from == move.from && killer_moves[1][ply].to == move.to);
     }
 };

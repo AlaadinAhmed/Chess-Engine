@@ -1,4 +1,5 @@
 #include "eval.hpp"
+#include "pst.hpp"
 #include "bitboard.hpp"
 #include "magics.hpp"
 #include "movegen.hpp"
@@ -516,11 +517,11 @@ void evaluate_material_and_pst(const Position &pos, int &score_mg,
 }
 
 int evaluate(Position &pos, const EvalConfig &config) {
-  int score_mg = 0;
-  int score_eg = 0;
+  int score_mg = pos.psq_score_mg;
+  int score_eg = pos.psq_score_eg;
   int phase = calculateGamePhase(pos); // 0..24
 
-  evaluate_material_and_pst(pos, score_mg, score_eg);
+  // evaluate_material_and_pst(pos, score_mg, score_eg); // Replaced by incremental update
 
   int score = (score_mg * phase + score_eg * (24 - phase)) / 24;
 

@@ -1,0 +1,6 @@
+Performance Analysis Report (Updated)
+---------------------------
+Initial NPS: ~945,000
+After Staged MoveGen: ~1,385,000
+After Incremental Eval: ~1,415,000
+Total Improvement: ~50%

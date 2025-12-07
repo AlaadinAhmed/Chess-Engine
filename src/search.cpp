@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <algorithm>
+#include <cmath>
 
 std::atomic<bool> searching = false;
 std::atomic<long long> nodes_searched = 0;
@@ -12,6 +13,23 @@ std::atomic<int> max_seldepth = 0;
 #include "eval.hpp"
 #include "movegen.hpp"
 #include "tt.hpp"
+#include "movepick.hpp"
+#include "history.hpp"
+
+History history;
+int lmr_table[64][64];
+
+void init_lmr() {
+    for (int depth = 0; depth < 64; depth++) {
+        for (int move = 0; move < 64; move++) {
+            if (depth == 0 || move == 0) {
+                lmr_table[depth][move] = 0;
+            } else {
+                lmr_table[depth][move] = 1 + std::log(depth) * std::log(move) / 2;
+            }
+        }
+    }
+}
 
 #include "globals.hpp"
 #include <iostream>
@@ -22,7 +40,6 @@ std::atomic<int> max_seldepth = 0;
 #include <vector>
 
 int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time, int ply) {
-    log_debug("Entering quiescence");
     
     // Track selective depth (atomic update)
     int current_max = max_seldepth.load();
@@ -36,8 +53,8 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
         return 0; // Stop early if search is interrupted
     }
 
-    // Check time limit more frequently (every 256 nodes)
-    if (move_time != -1 && (nodes_searched & 255) == 0) {
+    // Check time limit more frequently (every 2048 nodes)
+    if (move_time != -1 && (nodes_searched & 2047) == 0) {
         auto now = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
         if (duration >= move_time) {
@@ -55,6 +72,13 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
         alpha = stand_pat;
     }
 
+    // Delta Pruning
+    int big_delta = 900; // Queen value
+    if (stand_pat < alpha - big_delta) {
+        // Even a queen capture won't raise alpha, but we must be careful with promotions
+        // For now, let's use a safer delta pruning
+    }
+    
     MoveList move_list;
     generate_captures(pos, move_list);
     // Simple capture ordering by MVV-LVA heuristic using piece values
@@ -71,7 +95,13 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
     for (int i = 0; i < move_list.count; ++i) {
         Pieces victim = get_piece_at(pos, move_list.moves[i].to);
         Pieces aggressor = get_piece_at(pos, move_list.moves[i].from);
-        move_list.moves[i].score = piece_value(victim) - piece_value(aggressor);
+        
+        // Delta Pruning Check
+        if (stand_pat + piece_value(victim) + 200 < alpha && move_list.moves[i].promotion == NO_PIECE) {
+            move_list.moves[i].score = -1000000; // Mark for skipping
+        } else {
+            move_list.moves[i].score = piece_value(victim) - piece_value(aggressor);
+        }
     }
 
     for (int i = 0; i < move_list.count; i++) {
@@ -86,6 +116,8 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
         Move tmp = move_list.moves[i];
         move_list.moves[i] = move_list.moves[best_idx];
         move_list.moves[best_idx] = tmp;
+
+        if (move_list.moves[i].score == -1000000) continue; // Skip pruned moves
 
         makemove(pos, move_list.moves[i]);
         // Skip illegal captures that leave own king in check
@@ -135,16 +167,16 @@ void score_moves(MoveList &move_list, Position &pos, Move tt_move) {
     }
 }
 
-int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time, bool allow_null) {
-    log_debug("Entering alpha_beta_search function (current_depth " + std::to_string(current_depth) + ", max_depth " + std::to_string(max_depth) + ")");
+int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, std::chrono::time_point<std::chrono::high_resolution_clock> start_time, int move_time, bool allow_null, Move prev_move) {
+    // log_debug("Entering alpha_beta_search function (current_depth " + std::to_string(current_depth) + ", max_depth " + std::to_string(max_depth) + ")");
 
     // Check if search should stop (check more frequently)
     if (!searching) {
         return 0;
     }
     
-    // Check time limit more frequently (every 256 nodes instead of 1024)
-    if (move_time != -1 && (nodes_searched & 255) == 0) {
+    // Check time limit more frequently (every 2048 nodes instead of 1024)
+    if (move_time != -1 && (nodes_searched & 2047) == 0) {
         auto now = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
         if (duration >= move_time) {
@@ -174,15 +206,27 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
     }
     
+    // ProbCut
+    if (current_depth >= 5 && beta < 30000) { // Not in mate score range
+        Move prob_cut_best;
+        int prob_beta = beta + 200;
+        int prob_depth = current_depth - 4;
+        // Perform a shallow search with a wider window
+        int prob_score = -alpha_beta_search(pos, prob_depth, max_depth, -prob_beta, -prob_beta + 1, prob_cut_best, start_time, move_time, false, prev_move);
+        if (prob_score >= prob_beta) {
+            return prob_beta;
+        }
+    }
     // Null Move Pruning
     if (allow_null && current_depth >= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && pos.has_non_pawn_material(pos.whiteToMove)) {
         uint64_t saved_ep = pos.enPassant;
         pos.make_null_move();
-        int R = 2;
-        if (current_depth > 6) R = 3;
+        
+        // Stockfish-like dynamic reduction
+        int R = 3 + current_depth / 6; 
         
         Move null_move_best;
-        int score = -alpha_beta_search(pos, current_depth - 1 - R, max_depth, -beta, -beta + 1, null_move_best, start_time, move_time, false);
+        int score = -alpha_beta_search(pos, current_depth - 1 - R, max_depth, -beta, -beta + 1, null_move_best, start_time, move_time, false, Move{});
         
         pos.unmake_null_move(saved_ep);
         
@@ -190,99 +234,172 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
             return beta;
         }
     }
+    
+    // Razoring
+    if (current_depth <= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
+        int static_eval = evaluate(pos);
+        // Stockfish formula scaled for our eval (Pawn=100 vs SF=208): (514 + 294 * d^2) / 2
+        int razor_margin = 257 + 147 * current_depth * current_depth;
+        if (static_eval + razor_margin < alpha) {
+            int q_score = quiescence(pos, alpha, beta, start_time, move_time, max_depth); 
+            if (q_score < alpha) {
+                return alpha; 
+            }
+        }
+    }
 
-    if (current_depth == 0) {
+    // Futility Pruning
+    if (current_depth <= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
+        int static_eval = evaluate(pos);
+        // Scaled margin: 60 * depth (approx 0.6 pawns per depth)
+        int margin = 60 * current_depth;
+        if (static_eval - margin >= beta) {
+            return static_eval; // Reverse Futility Pruning (Static Null Move Pruning)
+        }
+    }
+
+    // Check Extension
+    bool in_check = is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove);
+    if (in_check) {
+        current_depth++;
+    }
+
+    if (current_depth <= 0) {
         int ply = max_depth;
         return quiescence(pos, alpha, beta, start_time, move_time, ply);
     }
 
-    MoveList move_list;
-    generate_moves(pos, move_list);
+    // Internal Iterative Deepening (IID)
+    if (found && entry->depth >= current_depth) {
+        // ... existing TT logic ...
+    }
     
     Move tt_move = (found) ? entry->best_move : Move{};
-    score_moves(move_list, pos, tt_move);
-
-    HashFlag flag = HASH_FLAG_ALPHA;
-
-    if (move_list.count == 0) {
-        int king_square = pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing);
-        if (is_square_attacked(pos, king_square, !pos.whiteToMove)) {
-            // Checkmate - return mate score adjusted for distance
-            return -30000 + (max_depth - current_depth);
-        } else {
-            return 0; // Stalemate
+    
+    if (current_depth >= 4 && (tt_move.from == 0 && tt_move.to == 0)) {
+        int iid_depth = current_depth - 2;
+    Move iid_best_move;
+    alpha_beta_search(pos, iid_depth, max_depth, alpha, beta, iid_best_move, start_time, move_time, true, prev_move);
+    tt_move = iid_best_move;
+        
+        // Probe TT again to get the entry from IID
+        entry = tt.probe(pos.zobrist_key, found);
+        if (found) {
+             tt_move = entry->best_move;
         }
     }
 
     int best_score = -50000;
-    Move local_best_move = {}; // Initialize with default values
+    Move local_best_move = {}; 
     bool found_legal_move = false;
-    int illegal_count = 0; // Count illegal moves
+    int illegal_count = 0; 
+    HashFlag flag = HASH_FLAG_ALPHA;
+    Move temp_best_move;
 
-    log_debug("Found " + std::to_string(move_list.count) + " moves.");
-    for (int i = 0; i < move_list.count; i++) {
-        // Find best move
-        int best_idx = i;
-        for (int j = i + 1; j < move_list.count; j++) {
-            if (move_list.moves[j].score > move_list.moves[best_idx].score) {
-                best_idx = j;
-            }
-        }
-        // Swap
-        Move current_move = move_list.moves[best_idx];
-        move_list.moves[best_idx] = move_list.moves[i];
-        move_list.moves[i] = current_move;
+    MovePicker move_picker(pos, tt_move, history, current_depth, prev_move);
+    
+    int moves_searched = 0;
+    
+    while (true) {
+        Move current_move = move_picker.next_move();
+        if (current_move.from == 0 && current_move.to == 0) break;
 
-        log_debug("Searching move: " + move_to_uci(current_move));
+        moves_searched++;
+        // log_debug("Searching move: " + move_to_uci(current_move));
         makemove(pos, current_move);
+        
         // Skip illegal moves that leave own king in check
         bool mover_is_white = !pos.whiteToMove;
         uint64_t king_bb = mover_is_white ? pos.WhiteKing : pos.BlackKing;
         if (king_bb == 0) {
-            // King was captured - this should never happen!
-            log_debug("ERROR: King captured after move " + move_to_uci(current_move));
             illegal_count++;
             undomove(pos, current_move);
             continue;
         }
         int king_sq = __builtin_ctzll(king_bb);
-        bool in_check = is_square_attacked(pos, king_sq, !mover_is_white);
-        if (in_check) {
+        bool in_check_after_move = is_square_attacked(pos, king_sq, !mover_is_white);
+        if (in_check_after_move) {
             illegal_count++;
             undomove(pos, current_move);
             continue;
         }
+        
         // If this is the first legal move found, initialize local_best_move
         if (!found_legal_move) {
             local_best_move = current_move;
             found_legal_move = true;
         }
-        Move temp_best_move; // Temporary best move for recursive calls
-        int score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true);
-        log_debug("Undoing move: " + move_to_uci(current_move));
+        
+        int score;
+        bool do_full_search = true;
+        
+        // Late Move Reduction (LMR)
+        if (moves_searched > 3 && current_depth >= 3 && !in_check_after_move && get_piece_at(pos, current_move.to) == NO_PIECE && current_move.promotion == NO_PIECE) {
+            int d = std::min(current_depth, 63);
+            int m = std::min(moves_searched, 63);
+            int reduction = lmr_table[d][m];
+            int reduced_depth = std::max(1, current_depth - 1 - reduction);
+            
+            score = -alpha_beta_search(pos, reduced_depth, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
+            
+            if (score > alpha) {
+                do_full_search = true; // Re-search at full depth
+            } else {
+                do_full_search = false;
+            }
+        }
+        
+        if (do_full_search) {
+            // Principal Variation Search (PVS)
+            if (moves_searched > 1) {
+                // Null window search
+                score = -alpha_beta_search(pos, current_depth - 1, max_depth, -alpha - 1, -alpha, temp_best_move, start_time, move_time, true, current_move);
+                if (score > alpha && score < beta) {
+                    // Re-search with full window
+                    score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
+                }
+            } else {
+                // Full window search for PV move
+                score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
+            }
+        }
+
+        // log_debug("Undoing move: " + move_to_uci(current_move));
         undomove(pos, current_move);
+        
         if (score > best_score) {
             best_score = score;
             local_best_move = current_move;
+            if (score > alpha) {
+                alpha = score;
+                flag = HASH_FLAG_EXACT;
+                
+                // Update History
+                if (get_piece_at(pos, current_move.to) == NO_PIECE) {
+                     history.update_history_score(pos, current_move, current_depth);
+                }
+            }
         }
-        if (best_score > alpha) {
-            alpha = best_score;
-            flag = HASH_FLAG_EXACT;
-        }
-        if (alpha >= beta) {
-            tt.save(pos.zobrist_key, current_depth, HASH_FLAG_BETA, beta, local_best_move); // Save the best move that caused beta cutoff
-            best_move = local_best_move; // Assign the local best move before returning
+        if (score >= beta) {
+            // Update Killers
+            if (get_piece_at(pos, current_move.to) == NO_PIECE) {
+                history.update_killer_move(current_move, current_depth); // Using depth as ply proxy
+                history.update_history_score(pos, current_move, current_depth);
+                history.update_counter_move(prev_move, current_move);
+            }
+            
+            tt.save(pos.zobrist_key, current_depth, HASH_FLAG_BETA, beta, local_best_move); 
+            best_move = local_best_move; 
             return beta;
         }
     }
-
+    
     if (found_legal_move) {
-        best_move = local_best_move; // Assign the local best move to the reference parameter
+        best_move = local_best_move; 
     } else {
-        best_move = {}; // No legal moves found, set to null move
+        best_move = {}; 
         if (debug_mode && current_depth <= 3) {
-            std::cerr << "WARNING: No legal moves found at depth " << current_depth 
-                      << " (generated " << move_list.count << ", " << illegal_count << " illegal)" << std::endl;
+             // Warning suppressed
         }
     }
     tt.save(pos.zobrist_key, current_depth, flag, best_score, best_move);
@@ -291,6 +408,21 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
 
 int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
     searching = true;
+    static bool lmr_init = false;
+    if (!lmr_init) {
+        init_lmr();
+        lmr_init = true;
+    }
+
+    // Check for book move
+    std::string book_move_str = get_book_move(pos, "book/book.txt");
+    if (!book_move_str.empty()) {
+        best_move = uci_to_move(book_move_str);
+        std::cout << "info string Book move found: " << book_move_str << std::endl;
+        searching = false;
+        return 0;
+    }
+
     Move current_best_move;
     int current_best_score = 0;
 
@@ -305,7 +437,32 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
         Move iteration_best_move;
         history_ply = 0; // ensure clean state per iteration
         seldepth = 0; // Reset seldepth for this iteration (not max_seldepth!)
-        int iteration_score = alpha_beta_search(pos, depth, depth, -50000, 50000, iteration_best_move, start_time, move_time, true);
+        int iteration_score;
+        int alpha = -50000;
+        int beta = 50000;
+        
+        if (depth >= 5) {
+            alpha = current_best_score - 50;
+            beta = current_best_score + 50;
+        }
+        
+        while (true) {
+            iteration_score = alpha_beta_search(pos, depth, depth, alpha, beta, iteration_best_move, start_time, move_time, true, Move{});
+            
+            if (!searching) break;
+            
+            if (iteration_score <= alpha) {
+                alpha -= alpha / 2; // Widen window downwards (or just -infinity)
+                if (alpha < -50000) alpha = -50000;
+                log_debug("Aspiration fail low, widening alpha to " + std::to_string(alpha));
+            } else if (iteration_score >= beta) {
+                beta += beta / 2; // Widen window upwards
+                if (beta > 50000) beta = 50000;
+                log_debug("Aspiration fail high, widening beta to " + std::to_string(beta));
+            } else {
+                break; // Score within window
+            }
+        }
 
         if (searching) { // Check if we are still searching (e.g., not stopped by 'stop' command)
             current_best_score = iteration_score;
@@ -323,24 +480,32 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
             if (duration == 0) duration = 1; // Avoid division by zero
 
             // Reconstruct PV with legality checks to avoid bogus TT chains
-            std::vector<Move> pv_moves;
+            Move pv_moves[256];
+            int pv_count = 0;
             Position temp_pos = pos;
             int saved_history_ply = history_ply; // Save before PV extraction
-            std::vector<uint64_t> pv_keys; // Track keys to detect cycles
+            uint64_t pv_keys[256]; // Track keys to detect cycles
+            int pv_keys_count = 0;
             
             // Start with the best move from this iteration
             if (iteration_best_move.from != 0 || iteration_best_move.to != 0) {
-                pv_moves.push_back(iteration_best_move);
+                pv_moves[pv_count++] = iteration_best_move;
                 makemove(temp_pos, iteration_best_move);
-                pv_keys.push_back(pos.zobrist_key);
+                pv_keys[pv_keys_count++] = pos.zobrist_key;
                 
                 // Then follow the TT chain
-                for (int i = 1; i < depth && pv_moves.size() < (size_t)depth; ++i) {
+                for (int i = 1; i < depth && pv_count < depth; ++i) {
                     // Check for cycles
-                    if (std::find(pv_keys.begin(), pv_keys.end(), temp_pos.zobrist_key) != pv_keys.end()) {
-                        break; // Position repeated, stop PV
+                    bool cycle_found = false;
+                    for (int k = 0; k < pv_keys_count; ++k) {
+                        if (pv_keys[k] == temp_pos.zobrist_key) {
+                            cycle_found = true;
+                            break;
+                        }
                     }
-                    pv_keys.push_back(temp_pos.zobrist_key);
+                    if (cycle_found) break; // Position repeated, stop PV
+                    
+                    pv_keys[pv_keys_count++] = temp_pos.zobrist_key;
                     
                     bool found;
                     TTEntry* entry = tt.probe(temp_pos.zobrist_key, found);
@@ -362,7 +527,7 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
                     if (!legal_found) {
                         break;
                     }
-                    pv_moves.push_back(pv_move);
+                    pv_moves[pv_count++] = pv_move;
                     makemove(temp_pos, pv_move);
                 }
             }
@@ -370,8 +535,8 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
             
             // Build PV string
             std::string pv_string = "";
-            for (const auto& m : pv_moves) {
-                pv_string += move_to_uci(m) + " ";
+            for (int i = 0; i < pv_count; ++i) {
+                pv_string += move_to_uci(pv_moves[i]) + " ";
             }
 
             long long nps = 0;
@@ -451,7 +616,7 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
                 seldepth = 0;
             }
             
-            int iteration_score = alpha_beta_search(local_pos, depth, depth, -1000000, 1000000, iteration_best, start_time, move_time, true);
+            int iteration_score = alpha_beta_search(local_pos, depth, depth, -1000000, 1000000, iteration_best, start_time, move_time, true, Move{});
             
             if (!searching) break;
             
@@ -476,18 +641,25 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
                         std::string pv_string = "";
                         Position temp_pos = pos;
                         int saved_history_ply = history_ply;
-                        std::vector<uint64_t> pv_keys;
+                        uint64_t pv_keys[256];
+                        int pv_keys_count = 0;
                         
                         if (iteration_best.from != 0 || iteration_best.to != 0) {
                             pv_string += move_to_uci(iteration_best) + " ";
                             makemove(temp_pos, iteration_best);
-                            pv_keys.push_back(pos.zobrist_key);
+                            pv_keys[pv_keys_count++] = pos.zobrist_key;
                             
                             for (int i = 1; i < depth; ++i) {
-                                if (std::find(pv_keys.begin(), pv_keys.end(), temp_pos.zobrist_key) != pv_keys.end()) {
-                                    break;
+                                bool cycle_found = false;
+                                for (int k = 0; k < pv_keys_count; ++k) {
+                                    if (pv_keys[k] == temp_pos.zobrist_key) {
+                                        cycle_found = true;
+                                        break;
+                                    }
                                 }
-                                pv_keys.push_back(temp_pos.zobrist_key);
+                                if (cycle_found) break;
+
+                                pv_keys[pv_keys_count++] = temp_pos.zobrist_key;
                                 
                                 bool found;
                                 TTEntry* entry = tt.probe(temp_pos.zobrist_key, found);

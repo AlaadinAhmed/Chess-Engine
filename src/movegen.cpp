@@ -1,4 +1,5 @@
 #include "movegen.hpp"
+#include "pst.hpp"
 #include "bitboard.hpp"
 #include "fen.hpp"
 #include "globals.hpp"
@@ -96,7 +97,6 @@ void initPawnMoves() {
 const int WK = 1, WQ = 2, BK = 4, BQ = 8;
 
 void makemove(Position &pos, Move m) {
-  log_debug("Enter makemove");
   UndoInfo &undo = undo_history[history_ply];
   undo.oldHashKey = pos.zobrist_key;
   undo.oldCastelingRights = pos.castelingRights;
@@ -108,6 +108,8 @@ void makemove(Position &pos, Move m) {
   undo.isEnPassant = (pos.enPassant != 0 && (to_bb_for_ep == pos.enPassant) &&
                       get_piece_type(undo.movedPiece) == PAWN);
   undo.isCastling = false;
+  undo.old_psq_score_mg = pos.psq_score_mg;
+  undo.old_psq_score_eg = pos.psq_score_eg;
 
   pos.move50rule++;
 
@@ -119,6 +121,13 @@ void makemove(Position &pos, Move m) {
 
   uint64_t from_bb = 1ULL << m.from;
   uint64_t to_bb = 1ULL << m.to;
+
+  // Update incremental scores for moving piece
+  int mg_from, eg_from, mg_to, eg_to;
+  get_pst_score(undo.movedPiece, m.from, mg_from, eg_from);
+  get_pst_score(undo.movedPiece, m.to, mg_to, eg_to);
+  pos.psq_score_mg += (mg_to - mg_from);
+  pos.psq_score_eg += (eg_to - eg_from);
 
   // Move piece
   if (pos.whiteToMove) {
@@ -162,6 +171,11 @@ void makemove(Position &pos, Move m) {
 
   // Handle captures
   if (undo.oldCapturedPiece != NO_PIECE) {
+    int mg_cap, eg_cap;
+    get_pst_score(undo.oldCapturedPiece, m.to, mg_cap, eg_cap);
+    pos.psq_score_mg -= mg_cap;
+    pos.psq_score_eg -= eg_cap;
+
     pos.move50rule = 0;
     if (pos.whiteToMove)
       pos.BlackoccupiedSquares &= ~to_bb;
@@ -228,6 +242,13 @@ void makemove(Position &pos, Move m) {
     // En passant capture
     if (undo.isEnPassant) {
       int captured_pawn_sq = pos.whiteToMove ? m.to - 8 : m.to + 8;
+      
+      int mg_ep, eg_ep;
+      Pieces captured_pawn = pos.whiteToMove ? B_PAWN : W_PAWN;
+      get_pst_score(captured_pawn, captured_pawn_sq, mg_ep, eg_ep);
+      pos.psq_score_mg -= mg_ep;
+      pos.psq_score_eg -= eg_ep;
+
       uint64_t captured_pawn_bb = 1ULL << captured_pawn_sq;
       if (pos.whiteToMove) {
         pos.BlackPawns &= ~captured_pawn_bb;
@@ -244,6 +265,15 @@ void makemove(Position &pos, Move m) {
     }
     // Promotion
     if (m.promotion != NO_PIECE) {
+      int mg_pawn, eg_pawn, mg_promo, eg_promo;
+      // Remove pawn score at destination (already added in "Move piece" step)
+      get_pst_score(undo.movedPiece, m.to, mg_pawn, eg_pawn);
+      // Add promoted piece score at destination
+      get_pst_score(m.promotion, m.to, mg_promo, eg_promo);
+      
+      pos.psq_score_mg += (mg_promo - mg_pawn);
+      pos.psq_score_eg += (eg_promo - eg_pawn);
+
       if (pos.whiteToMove)
         pos.WhitePawns &= ~to_bb;
       else
@@ -286,9 +316,15 @@ void makemove(Position &pos, Move m) {
       else
         rook_from = 56, rook_to = 59; // Black queenside
 
+      Pieces rook_piece = pos.whiteToMove ? W_ROOK : B_ROOK;
+      int mg_r_from, eg_r_from, mg_r_to, eg_r_to;
+      get_pst_score(rook_piece, rook_from, mg_r_from, eg_r_from);
+      get_pst_score(rook_piece, rook_to, mg_r_to, eg_r_to);
+      pos.psq_score_mg += (mg_r_to - mg_r_from);
+      pos.psq_score_eg += (eg_r_to - eg_r_from);
+
       uint64_t rook_from_bb = 1ULL << rook_from;
       uint64_t rook_to_bb = 1ULL << rook_to;
-      Pieces rook_piece = pos.whiteToMove ? W_ROOK : B_ROOK;
 
       if (pos.whiteToMove) {
         pos.WhiteRooks &= ~rook_from_bb, pos.WhiteRooks |= rook_to_bb;
@@ -354,6 +390,8 @@ void undomove(Position &pos, Move m) {
   pos.castelingRights = undo.oldCastelingRights;
   pos.enPassant = undo.oldEnPassant;
   pos.move50rule = undo.oldHalfMove;
+  pos.psq_score_mg = undo.old_psq_score_mg;
+  pos.psq_score_eg = undo.old_psq_score_eg;
 
   uint64_t from_bb = 1ULL << m.from;
   uint64_t to_bb = 1ULL << m.to;

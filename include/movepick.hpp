@@ -5,7 +5,7 @@
 
 class MovePicker {
 public:
-    MovePicker(Position &pos, Move tt_move, History &history, int ply);
+    MovePicker(Position &pos, Move tt_move, History &history, int ply, Move prev_move);
     Move next_move();
 
 private:

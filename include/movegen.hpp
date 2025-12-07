@@ -176,6 +176,8 @@ struct UndoInfo {
     int castlingRookTo; ///< The destination square of the rook in a castling move.
     bool side; ///< The side to move before the move.
     Pieces movedPiece; ///< The piece that was moved.
+    int old_psq_score_mg;
+    int old_psq_score_eg;
 };
 
 /**

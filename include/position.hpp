@@ -128,6 +128,10 @@ struct Position {
    */
   uint64_t zobrist_key = 0;
 
+  // Incremental scores
+  int psq_score_mg = 0;
+  int psq_score_eg = 0;
+
   /**
    * @brief Sets the board to the standard chess starting position.
    */
@@ -153,6 +157,7 @@ struct Position {
     enPassant = 0; move50rule = 0; move = 0; castelingRights = 0;
     BlackoccupiedSquares = 0; WhiteoccupiedSquares = 0; occupiedSquares = 0; emptySquares = 0;
     zobrist_key = 0;
+    psq_score_mg = 0; psq_score_eg = 0;
   }
 };
 

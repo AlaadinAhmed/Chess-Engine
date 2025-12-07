@@ -28,9 +28,16 @@ void Position::setStartingPosition() {
     setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 
+#include "eval.hpp"
+
 void Position::setFen(const std::string& fen_string) {
     parseFEN(*this, fen_string);
     zobrist_key = calculate_initial_hash(*this);
+    
+    // Initialize incremental scores
+    psq_score_mg = 0;
+    psq_score_eg = 0;
+    evaluate_material_and_pst(*this, psq_score_mg, psq_score_eg);
 }
 
 void Position::make_null_move() {

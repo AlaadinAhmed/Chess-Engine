@@ -51,7 +51,7 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
  * @param move_time The total time allocated for the move in milliseconds.
  * @return The score of the position from the perspective of the side to move.
  */
-int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, const std::chrono::high_resolution_clock::time_point& start_time, long long move_time, bool allow_null = true);
+int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha, int beta, Move &best_move, std::chrono::time_point<std::chrono::high_resolution_clock> start_time, int move_time, bool allow_null, Move prev_move);
 
 /**
  * @brief Entry point for a single-threaded search.
