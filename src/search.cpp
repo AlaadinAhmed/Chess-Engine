@@ -26,8 +26,8 @@ void init_lmr() {
             if (depth == 0 || move == 0) {
                 lmr_table[depth][move] = 0;
             } else {
-                // Stable LMR: divisor 1.2
-                lmr_table[depth][move] = 1 + std::log(depth) * std::log(move) / 1.2;
+                // More aggressive LMR: divisor 0.9 for higher reductions
+                lmr_table[depth][move] = 1.5 + std::log(depth) * std::log(move) / 0.9;
             }
         }
     }
@@ -233,8 +233,8 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
     // Null Move Pruning
     if (allow_null && current_depth >= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && pos.has_non_pawn_material(pos.whiteToMove)) {
         int se = eval_calculated ? static_eval : evaluate(pos);
-        // Stockfish-style dynamic R with extra reduction based on eval
-        int R = 4 + current_depth / 5 + std::min(3, std::max(0, (se - beta) / 150)); 
+        // Very aggressive NMP: R = 8 + depth/3 for maximum cutoffs
+        int R = 8 + current_depth / 3 + std::min(4, std::max(0, (se - beta) / 80)); 
         
         int null_depth = current_depth - 1 - R;
         if (null_depth > 0) {
@@ -252,11 +252,10 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
     }
     
-    // Razoring
-    if (current_depth <= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
+    // Razoring - extended to depth 4
+    if (current_depth <= 4 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
         int se = eval_calculated ? static_eval : evaluate(pos);
-        // Stockfish formula scaled for our eval (Pawn=100 vs SF=208): (514 + 294 * d^2) / 2
-        int razor_margin = 200 + 100 * current_depth * current_depth;
+        int razor_margin = 150 + 80 * current_depth * current_depth;
         if (se + razor_margin < alpha) {
             int q_score = quiescence(pos, alpha, beta, start_time, move_time, max_depth); 
             if (q_score < alpha) {
@@ -265,11 +264,11 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
     }
 
-    // Futility Pruning (Reverse Futility Pruning) - Extended to depth 7
-    if (current_depth <= 7 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
+    // Futility Pruning (Reverse Futility Pruning) - Extended to depth 9
+    if (current_depth <= 9 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
         int se = eval_calculated ? static_eval : evaluate(pos);
-        // Stockfish-style margin: 70 + 60*depth (more aggressive)
-        int margin = 70 + 60 * current_depth;
+        // Very aggressive margin: 100 + 100*depth
+        int margin = 100 + 100 * current_depth;
         if (se - margin >= beta) {
             return se; // Reverse Futility Pruning (Static Null Move Pruning)
         }
@@ -415,7 +414,6 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         // Don't prune the TT move if it was marked as singular
         bool is_tt = (current_move.from == tt_move.from && current_move.to == tt_move.to && current_move.promotion == tt_move.promotion);
         if (!in_check_after_move && !is_capture && current_move.promotion == NO_PIECE && current_depth <= 5 && !is_tt) {
-            // Stable: 3 + depth² 
             int lmp_threshold = 3 + current_depth * current_depth;
             if (moves_searched > lmp_threshold) {
                 undomove(pos, current_move);
