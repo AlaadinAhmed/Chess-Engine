@@ -104,7 +104,7 @@ Move MovePicker::next_move() {
                 } else {
                     score = history.history_scores[get_piece_at(pos, moves.moves[i].from)][moves.moves[i].to];
                     if (moves.moves[i].from == counter_move.from && moves.moves[i].to == counter_move.to) {
-                        score += 2000; // Counter move bonus
+                        score += 10000; // Counter move bonus (high priority)
                     }
                     // Add PSQT bonus
                     Pieces p = get_piece_at(pos, moves.moves[i].from);
