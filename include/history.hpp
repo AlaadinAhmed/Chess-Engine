@@ -32,11 +32,16 @@ struct History {
 
     void update_history_score(const Position &pos, Move move, int depth) {
         int bonus = depth * depth;
-        history_scores[get_piece_at(pos, move.from)][move.to] += bonus;
-        // Cap the score to avoid overflow (optional but good practice)
-        if (history_scores[get_piece_at(pos, move.from)][move.to] > 100000) {
-             history_scores[get_piece_at(pos, move.from)][move.to] = 100000;
-        }
+        int& score = history_scores[get_piece_at(pos, move.from)][move.to];
+        score += bonus;
+        if (score > 10000) score = 10000; // Cap at 10000
+    }
+
+    void penalize_history_score(const Position &pos, Move move, int depth) {
+        int penalty = depth * depth;
+        int& score = history_scores[get_piece_at(pos, move.from)][move.to];
+        score -= penalty;
+        if (score < -10000) score = -10000; // Cap at -10000
     }
     
     void update_killer_move(Move move, int ply) {

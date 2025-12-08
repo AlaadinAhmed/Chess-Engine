@@ -1,6 +1,7 @@
 #include "position.hpp"
 #include "search.hpp"
 #include "utils.hpp"
+#include "book.hpp"
 
 #include <atomic>
 #include <algorithm>
@@ -25,7 +26,8 @@ void init_lmr() {
             if (depth == 0 || move == 0) {
                 lmr_table[depth][move] = 0;
             } else {
-                lmr_table[depth][move] = 1 + std::log(depth) * std::log(move) / 2;
+                // Stable LMR: divisor 1.2
+                lmr_table[depth][move] = 1 + std::log(depth) * std::log(move) / 1.2;
             }
         }
     }
@@ -75,8 +77,7 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
     // Delta Pruning
     int big_delta = 900; // Queen value
     if (stand_pat < alpha - big_delta) {
-        // Even a queen capture won't raise alpha, but we must be careful with promotions
-        // For now, let's use a safer delta pruning
+        return alpha;
     }
     
     MoveList move_list;
@@ -118,6 +119,9 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
         move_list.moves[best_idx] = tmp;
 
         if (move_list.moves[i].score == -1000000) continue; // Skip pruned moves
+
+        // SEE Pruning
+        if (see(pos, move_list.moves[i]) < 0) continue;
 
         makemove(pos, move_list.moves[i]);
         // Skip illegal captures that leave own king in check
@@ -217,30 +221,43 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
             return prob_beta;
         }
     }
+    
+    // Static Eval for pruning (hoisted)
+    int static_eval = 0;
+    bool eval_calculated = false;
+    if (current_depth <= 7) {
+        static_eval = evaluate(pos);
+        eval_calculated = true;
+    }
+
     // Null Move Pruning
     if (allow_null && current_depth >= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && pos.has_non_pawn_material(pos.whiteToMove)) {
-        uint64_t saved_ep = pos.enPassant;
-        pos.make_null_move();
+        int se = eval_calculated ? static_eval : evaluate(pos);
+        // Stockfish-style dynamic R with extra reduction based on eval
+        int R = 4 + current_depth / 5 + std::min(3, std::max(0, (se - beta) / 150)); 
         
-        // Stockfish-like dynamic reduction
-        int R = 3 + current_depth / 6; 
-        
-        Move null_move_best;
-        int score = -alpha_beta_search(pos, current_depth - 1 - R, max_depth, -beta, -beta + 1, null_move_best, start_time, move_time, false, Move{});
-        
-        pos.unmake_null_move(saved_ep);
-        
-        if (score >= beta) {
-            return beta;
+        int null_depth = current_depth - 1 - R;
+        if (null_depth > 0) {
+            uint64_t saved_ep = pos.enPassant;
+            pos.make_null_move();
+            
+            Move null_move_best;
+            int score = -alpha_beta_search(pos, null_depth, max_depth, -beta, -beta + 1, null_move_best, start_time, move_time, false, Move{});
+            
+            pos.unmake_null_move(saved_ep);
+            
+            if (score >= beta) {
+                return beta;
+            }
         }
     }
     
     // Razoring
     if (current_depth <= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
-        int static_eval = evaluate(pos);
+        int se = eval_calculated ? static_eval : evaluate(pos);
         // Stockfish formula scaled for our eval (Pawn=100 vs SF=208): (514 + 294 * d^2) / 2
-        int razor_margin = 257 + 147 * current_depth * current_depth;
-        if (static_eval + razor_margin < alpha) {
+        int razor_margin = 200 + 100 * current_depth * current_depth;
+        if (se + razor_margin < alpha) {
             int q_score = quiescence(pos, alpha, beta, start_time, move_time, max_depth); 
             if (q_score < alpha) {
                 return alpha; 
@@ -248,13 +265,13 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
     }
 
-    // Futility Pruning
-    if (current_depth <= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
-        int static_eval = evaluate(pos);
-        // Scaled margin: 60 * depth (approx 0.6 pawns per depth)
-        int margin = 60 * current_depth;
-        if (static_eval - margin >= beta) {
-            return static_eval; // Reverse Futility Pruning (Static Null Move Pruning)
+    // Futility Pruning (Reverse Futility Pruning) - Extended to depth 7
+    if (current_depth <= 7 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
+        int se = eval_calculated ? static_eval : evaluate(pos);
+        // Stockfish-style margin: 70 + 60*depth (more aggressive)
+        int margin = 70 + 60 * current_depth;
+        if (se - margin >= beta) {
+            return se; // Reverse Futility Pruning (Static Null Move Pruning)
         }
     }
 
@@ -289,6 +306,62 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
     }
 
+    // Singular Extension: If the TT move is clearly better than alternatives, extend it
+    int singular_extension = 0;
+    bool pvNode = (beta - alpha > 1);
+    
+    // Singular Extension: If the TT move is clearly better than alternatives, extend it
+    if (current_depth >= 6 && found && entry->depth >= current_depth - 3 && 
+        entry->flag != HASH_FLAG_ALPHA && (tt_move.from != 0 || tt_move.to != 0) && !in_check) {
+        
+        // Singular margin: scale with depth
+        int singular_beta = entry->score - 2 * current_depth;
+        int singular_depth = (current_depth - 1) / 2;
+        
+        if (singular_depth > 0) {
+            // Do a reduced search excluding the TT move
+            // We use a null window search around singular_beta
+            Move excluded_best;
+            MovePicker singular_picker(pos, Move{}, history, singular_depth, prev_move);
+            int singular_score = -50000;
+            
+            while (true) {
+                Move m = singular_picker.next_move();
+                if (m.from == 0 && m.to == 0) break;
+                
+                // Skip the TT move
+                if (m.from == tt_move.from && m.to == tt_move.to && m.promotion == tt_move.promotion) continue;
+                
+                makemove(pos, m);
+                
+                // Check legality
+                bool mover_white = !pos.whiteToMove;
+                uint64_t kbb = mover_white ? pos.WhiteKing : pos.BlackKing;
+                if (kbb == 0 || is_square_attacked(pos, __builtin_ctzll(kbb), !mover_white)) {
+                    undomove(pos, m);
+                    continue;
+                }
+                
+                Move temp;
+                int score = -alpha_beta_search(pos, singular_depth, max_depth, -singular_beta, -singular_beta + 1, temp, start_time, move_time, true, m);
+                undomove(pos, m);
+                
+                if (score >= singular_beta) {
+                    singular_score = score;
+                    break;  // Found a move that beats singular_beta, TT move is not singular
+                }
+                if (score > singular_score) {
+                    singular_score = score;
+                }
+            }
+            
+            // If no other move beats singular_beta, the TT move is singular
+            if (singular_score < singular_beta) {
+                singular_extension = 1;
+            }
+        }
+    }
+
     int best_score = -50000;
     Move local_best_move = {}; 
     bool found_legal_move = false;
@@ -305,6 +378,11 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         if (current_move.from == 0 && current_move.to == 0) break;
 
         moves_searched++;
+        
+        // Check if capture BEFORE makemove
+        bool is_capture = (get_piece_at(pos, current_move.to) != NO_PIECE);
+        Pieces moved_piece = get_piece_at(pos, current_move.from);
+        
         // log_debug("Searching move: " + move_to_uci(current_move));
         makemove(pos, current_move);
         
@@ -333,14 +411,45 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         int score;
         bool do_full_search = true;
         
+        // Late Move Pruning (LMP) - Stable thresholds
+        // Don't prune the TT move if it was marked as singular
+        bool is_tt = (current_move.from == tt_move.from && current_move.to == tt_move.to && current_move.promotion == tt_move.promotion);
+        if (!in_check_after_move && !is_capture && current_move.promotion == NO_PIECE && current_depth <= 5 && !is_tt) {
+            // Stable: 3 + depth² 
+            int lmp_threshold = 3 + current_depth * current_depth;
+            if (moves_searched > lmp_threshold) {
+                undomove(pos, current_move);
+                continue;
+            }
+        }
+
+        // History Pruning
+        int history_score_val = history.history_scores[moved_piece][current_move.to];
+        if (!in_check_after_move && !is_capture && current_move.promotion == NO_PIECE && current_depth <= 4 && history_score_val < -4000) {
+            undomove(pos, current_move);
+            continue;
+        }
+        
+        // Note: SEE-based pruning for quiet moves removed - SEE on non-captures returns 0
+
         // Late Move Reduction (LMR)
-        if (moves_searched > 3 && current_depth >= 3 && !in_check_after_move && get_piece_at(pos, current_move.to) == NO_PIECE && current_move.promotion == NO_PIECE) {
+        if (moves_searched > 3 && current_depth >= 3 && !in_check_after_move && !is_capture && current_move.promotion == NO_PIECE) {
             int d = std::min(current_depth, 63);
             int m = std::min(moves_searched, 63);
             int reduction = lmr_table[d][m];
+            
+            // History-based LMR adjustment
+            if (history_score_val > 2000) reduction -= 1;
+            else if (history_score_val < -2000) reduction += 1;
+            
+            // PV node adjustment
+            bool pvNode = (beta - alpha > 1);
+            if (pvNode) reduction -= 1;
+            if (reduction < 0) reduction = 0;
+            
             int reduced_depth = std::max(1, current_depth - 1 - reduction);
             
-            score = -alpha_beta_search(pos, reduced_depth, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
+            score = -alpha_beta_search(pos, reduced_depth, max_depth, -alpha - 1, -alpha, temp_best_move, start_time, move_time, true, current_move);
             
             if (score > alpha) {
                 do_full_search = true; // Re-search at full depth
@@ -350,17 +459,26 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
         
         if (do_full_search) {
+            // Calculate extension (singular extension applies to TT move)
+            int extension = 0;
+            bool is_tt_move = (current_move.from == tt_move.from && current_move.to == tt_move.to && current_move.promotion == tt_move.promotion);
+            if (is_tt_move && singular_extension) {
+                extension = singular_extension;
+            }
+            
+            int new_depth = current_depth - 1 + extension;
+            
             // Principal Variation Search (PVS)
             if (moves_searched > 1) {
                 // Null window search
-                score = -alpha_beta_search(pos, current_depth - 1, max_depth, -alpha - 1, -alpha, temp_best_move, start_time, move_time, true, current_move);
+                score = -alpha_beta_search(pos, new_depth, max_depth, -alpha - 1, -alpha, temp_best_move, start_time, move_time, true, current_move);
                 if (score > alpha && score < beta) {
                     // Re-search with full window
-                    score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
+                    score = -alpha_beta_search(pos, new_depth, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
                 }
             } else {
                 // Full window search for PV move
-                score = -alpha_beta_search(pos, current_depth - 1, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
+                score = -alpha_beta_search(pos, new_depth, max_depth, -beta, -alpha, temp_best_move, start_time, move_time, true, current_move);
             }
         }
 
@@ -415,12 +533,14 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
     }
 
     // Check for book move
-    std::string book_move_str = get_book_move(pos, "book/book.txt");
-    if (!book_move_str.empty()) {
-        best_move = uci_to_move(book_move_str);
-        std::cout << "info string Book move found: " << book_move_str << std::endl;
-        searching = false;
-        return 0;
+    if (own_book_enabled) {
+        Move book_move = opening_book.get_move(pos);
+        if (book_move.from != 0 || book_move.to != 0) {
+            best_move = book_move;
+            std::cout << "info depth 1 score cp 0 nodes 0 pv " << move_to_uci(book_move) << std::endl;
+            searching = false;
+            return 0;
+        }
     }
 
     Move current_best_move;

@@ -13,6 +13,10 @@ const EvalConfig default_eval_config = {
     .tempo_bonus = 10,
     .rook_open_file_bonus = 15,
     .rook_semi_open_file_bonus = 7,
+    .backward_pawn_penalty = 10,
+    .connected_pawn_bonus = 5,
+    .king_open_file_penalty = 20,
+    .pawn_storm_penalty = 10,
 };
 
 const int pawn_pst_mg[64] = {
@@ -278,7 +282,147 @@ int countPassedPawns(const Position &pos, bool is_white) {
     }
     pawns &= pawns - 1;
   }
+
   return passed_pawns;
+}
+
+int countConnectedPawns(const Position &pos, bool is_white) {
+    int connected_pawns = 0;
+    uint64_t pawns = is_white ? pos.WhitePawns : pos.BlackPawns;
+    uint64_t friendly_pawns = pawns;
+
+    while (pawns) {
+        int sq = __builtin_ctzll(pawns);
+        int file = sq % 8;
+        int rank = sq / 8;
+
+        // Check adjacent files for friendly pawns
+        bool connected = false;
+        if (file > 0) {
+            if (friendly_pawns & file_masks[file - 1]) connected = true;
+        }
+        if (!connected && file < 7) {
+            if (friendly_pawns & file_masks[file + 1]) connected = true;
+        }
+
+        if (connected) {
+            connected_pawns++;
+        }
+        pawns &= pawns - 1;
+    }
+    return connected_pawns;
+}
+
+int countBackwardPawns(const Position &pos, bool is_white) {
+    int backward_pawns = 0;
+    uint64_t pawns = is_white ? pos.WhitePawns : pos.BlackPawns;
+    uint64_t friendly_pawns = pawns;
+    uint64_t enemy_pawns = is_white ? pos.BlackPawns : pos.WhitePawns;
+    
+    // Helper to check if a square is controlled by enemy pawns
+    auto is_controlled_by_enemy_pawns = [&](int s) {
+        if (is_white) return (blackPawnAttacks[s] & enemy_pawns) != 0;
+        else return (whitePawnAttacks[s] & enemy_pawns) != 0;
+    };
+
+    while (pawns) {
+        int sq = __builtin_ctzll(pawns);
+        int file = sq % 8;
+        int rank = sq / 8;
+        
+        // 1. Check if it has friendly pawns on adjacent files behind or on same rank
+        // If it does, it's not backward (it can be supported)
+        bool supported = false;
+        if (file > 0) {
+            // Check file-1 for pawns on rank <= current rank
+            // Mask for file-1: file_masks[file-1]
+            // Mask for ranks <= rank: ... hard to construct efficiently without precalc
+            // Let's iterate or use bit manipulation
+            // Simpler: Check if any friendly pawn on adjacent file is behind or equal
+            // Actually, backward pawn definition:
+            // - No friendly pawn on adjacent files is further back or on same rank?
+            // - Or: Cannot be safely advanced.
+            
+            // Let's use a standard definition:
+            // A pawn is backward if:
+            // 1. No friendly pawn on adjacent files is on the same rank or further back.
+            // 2. The stop square (square in front) is controlled by an enemy pawn.
+            
+            uint64_t adj_mask = file_masks[file - 1];
+            // Mask for ranks behind or equal: 
+            // White (rank increasing): ranks 0 to rank
+            // Black (rank decreasing): ranks rank to 7
+            
+            // This is getting complicated to do with just file masks.
+            // Let's loop for now or use simple bit logic.
+            
+            // Optimization: 
+            // White: (friendly_pawns & adj_mask) & ~((1ULL << (sq + 1)) - 1) ... wait, sq is index.
+            // Rank mask: 
+        }
+        
+        // Simplified Backward Pawn:
+        // 1. No friendly pawn on adjacent files behind it.
+        // 2. Stop square attacked by enemy pawn.
+        
+        bool has_support_behind = false;
+        if (file > 0) {
+             uint64_t file_bb = friendly_pawns & file_masks[file - 1];
+             if (is_white) {
+                 // Check for pawns on ranks < rank (actually <= rank usually)
+                 // If there is a pawn on rank <= rank, it's supported.
+                 // sq is current square. 
+                 // We want to check if any bit in file_bb has index <= sq (roughly, but different file)
+                 // Actually, just check if there is ANY friendly pawn on adjacent file that is BEHIND or EQUAL.
+                 // White: index < sq (on adjacent file) -> rank is lower? No, file is different.
+                 // Rank of sq: sq / 8.
+                 // We need to check if file_bb contains any square with rank <= sq/8.
+                 
+                 // Let's iterate bits of file_bb
+                 while (file_bb) {
+                     int s = __builtin_ctzll(file_bb);
+                     if (s / 8 <= rank) { has_support_behind = true; break; }
+                     file_bb &= file_bb - 1;
+                 }
+             } else {
+                 // Black: Check for pawns on ranks >= rank
+                 while (file_bb) {
+                     int s = __builtin_ctzll(file_bb);
+                     if (s / 8 >= rank) { has_support_behind = true; break; }
+                     file_bb &= file_bb - 1;
+                 }
+             }
+        }
+        if (!has_support_behind && file < 7) {
+             uint64_t file_bb = friendly_pawns & file_masks[file + 1];
+             if (is_white) {
+                 while (file_bb) {
+                     int s = __builtin_ctzll(file_bb);
+                     if (s / 8 <= rank) { has_support_behind = true; break; }
+                     file_bb &= file_bb - 1;
+                 }
+             } else {
+                 while (file_bb) {
+                     int s = __builtin_ctzll(file_bb);
+                     if (s / 8 >= rank) { has_support_behind = true; break; }
+                     file_bb &= file_bb - 1;
+                 }
+             }
+        }
+
+        if (!has_support_behind) {
+            // Check stop square
+            int stop_sq = is_white ? sq + 8 : sq - 8;
+            if (stop_sq >= 0 && stop_sq < 64) {
+                if (is_controlled_by_enemy_pawns(stop_sq)) {
+                    backward_pawns++;
+                }
+            }
+        }
+
+        pawns &= pawns - 1;
+    }
+    return backward_pawns;
 }
 
 int calculateGamePhase(const Position &pos) {
@@ -301,12 +445,87 @@ void evaluate_mobility(Position &pos, int &score, int phase) {
   auto popcount = [](uint64_t x) { return __builtin_popcountll(x); };
   auto mobility_side = [&](bool white) {
     int mob = 0;
+    
+    // Calculate squares attacked by enemy pawns
+    uint64_t enemy_pawns = white ? pos.BlackPawns : pos.WhitePawns;
+    uint64_t unsafe_squares = 0;
+    // We can iterate enemy pawns or use a precomputed attack map for all pawns?
+    // Iterating is slow.
+    // Better: Shift enemy pawns to get their attacks.
+    // White pawns attack +7 and +9. Black pawns attack -7 and -9.
+    // Wait, bitboard shifts.
+    // White pawns at index i attack i+7 and i+9 (if not file wrap).
+    // Black pawns at index i attack i-7 and i-9.
+    // Let's use a helper or simple shifts.
+    
+    if (white) {
+        // Enemy is Black. Black pawns attack "down" (lower indices).
+        // Attacks: (pawns >> 7) & ~FileH | (pawns >> 9) & ~FileA
+        // Wait, standard mapping:
+        // Rank 0 is A1..H1. Rank 7 is A8..H8.
+        // Black pawns on Rank 6 move to Rank 5 (-8).
+        // Attack: -9 (Right/East? No, index decreases) and -7.
+        // Let's verify:
+        // Square 63 (H8). -9 = 54 (G7). -7 = 56 (A7? No, 56 is A8).
+        // Wait, 63 is H8. 56 is A8.
+        // 63 - 8 = 55 (H7).
+        // 63 - 9 = 54 (G7). Correct.
+        // 63 - 7 = 56 (A7? No, 56 is A8. 63-7 = 56).
+        // Wait, 63-7 = 56. 56 is A8.
+        // So H8 attacks A8? No.
+        // H8 pawn attacks G7 and ... nothing off board.
+        // H8 (63) -> G7 (54).
+        // A8 (56) -> B7 (49).
+        // A8 - 7 = 49 (B7).
+        // A8 - 9 = 47 (H6? No, wrap).
+        
+        // Correct shifts for Black attacks:
+        // (pawns >> 9) & ~FileH (if moving from higher to lower, right shift)
+        // (pawns >> 7) & ~FileA
+        
+        // Let's double check.
+        // Black pawn at B7 (49). Attacks A6 (40) and C6 (42).
+        // 49 >> 9 = 40. Correct.
+        // 49 >> 7 = 42. Correct.
+        // Black pawn at A7 (48). Attacks B6 (41).
+        // 48 >> 9 = 39 (H5? Wrap). Mask ~FileH needed?
+        // 48 is on File A.
+        // 48 >> 9 = 39. 39 is H5.
+        // We need to mask out wraps.
+        // If on File A, >> 9 wraps to H. So mask ~FileH.
+        // If on File H, >> 7 wraps to A. So mask ~FileA.
+        
+        unsafe_squares = ((enemy_pawns >> 9) & ~FileH) | ((enemy_pawns >> 7) & ~FileA);
+    } else {
+        // Enemy is White. White pawns attack "up" (higher indices).
+        // Attacks: (pawns << 9) & ~FileA | (pawns << 7) & ~FileH
+        // White pawn at B2 (9). Attacks A3 (16) and C3 (18).
+        // 9 << 7 = 16. Correct.
+        // 9 << 9 = 18. Correct.
+        // White pawn at A2 (8). Attacks B3 (17).
+        // 8 << 7 = 15 (H1? Wrap). Mask ~FileH needed?
+        // 8 is on File A.
+        // 8 << 7 = 128? No.
+        // 8 << 7 = 1024? No.
+        // 8 + 7 = 15.
+        // 15 is H1.
+        // So A2 attacks H1? No.
+        // We need to mask out wraps.
+        // If on File A, << 7 wraps to H. So mask ~FileH.
+        // If on File H, << 9 wraps to A. So mask ~FileA.
+        
+        unsafe_squares = ((enemy_pawns << 9) & ~FileA) | ((enemy_pawns << 7) & ~FileH);
+    }
+
+    uint64_t safe_mask = ~unsafe_squares;
+
     uint64_t bbk = white ? pos.WhiteKnights : pos.BlackKnights;
     while (bbk) {
       int sq = __builtin_ctzll(bbk);
       uint64_t attacks =
           knightAttacks[sq] &
-          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares);
+          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares) &
+          safe_mask;
       mob += popcount(attacks);
       bbk &= bbk - 1;
     }
@@ -315,7 +534,8 @@ void evaluate_mobility(Position &pos, int &score, int phase) {
       int sq = __builtin_ctzll(bbb);
       uint64_t attacks =
           get_bishop_attacks(sq, pos.occupiedSquares) &
-          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares);
+          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares) &
+          safe_mask;
       mob += popcount(attacks);
       bbb &= bbb - 1;
     }
@@ -324,7 +544,8 @@ void evaluate_mobility(Position &pos, int &score, int phase) {
       int sq = __builtin_ctzll(bbr);
       uint64_t attacks =
           get_rook_attacks(sq, pos.occupiedSquares) &
-          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares);
+          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares) &
+          safe_mask;
       mob += popcount(attacks);
       bbr &= bbr - 1;
     }
@@ -334,7 +555,8 @@ void evaluate_mobility(Position &pos, int &score, int phase) {
       uint64_t attacks =
           (get_bishop_attacks(sq, pos.occupiedSquares) |
            get_rook_attacks(sq, pos.occupiedSquares)) &
-          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares);
+          ~(white ? pos.WhiteoccupiedSquares : pos.BlackoccupiedSquares) &
+          safe_mask;
       mob += popcount(attacks);
       bbq &= bbq - 1;
     }
@@ -345,38 +567,93 @@ void evaluate_mobility(Position &pos, int &score, int phase) {
   score += mob_w * (mobility_side(true) - mobility_side(false));
 }
 
-void evaluate_king_shield(const Position &pos, int &score, int phase) {
-  auto king_pawn_shield = [&](bool white) {
+void evaluate_king_safety(const Position &pos, int &score, int phase, const EvalConfig &config) {
+  auto king_safety_side = [&](bool white) {
     uint64_t king = white ? pos.WhiteKing : pos.BlackKing;
     if (!king)
       return;
     int ks = __builtin_ctzll(king);
     int rank = ks / 8;
     int file = ks % 8;
-    int dir = white ? -1 : 1; // forward direction towards opponent
-    int shield_rank = rank + dir;
-    int bonus = 0;
-    if (shield_rank >= 0 && shield_rank < 8) {
-      for (int df = -1; df <= 1; ++df) {
-        int f = file + df;
-        if (f < 0 || f > 7)
-          continue;
-        int sq = shield_rank * 8 + f;
-        uint64_t mask = 1ULL << sq;
-        if (white) {
-          if (pos.WhitePawns & mask)
-            bonus += 8;
-        } else {
-          if (pos.BlackPawns & mask)
-            bonus += 8;
+    int dir = white ? -1 : 1; // forward direction towards opponent (rank index change)
+    // Wait, rank index: White 0-7. Forward for white is +1?
+    // Board representation:
+    // Rank 0: a1-h1. Rank 7: a8-h8.
+    // White pawns move +8 (rank +1).
+    // So forward for white is +1.
+    // My previous code said: `int dir = white ? -1 : 1;`
+    // Let's check `evaluate_king_shield` original code.
+    // `int shield_rank = rank + dir;`
+    // If white king is at rank 0, shield is at rank -1? That's wrong.
+    // White king at rank 0, shield at rank 1. So dir should be +1 for white.
+    // Let's verify `evaluate_king_shield` original code.
+    // It was: `int dir = white ? -1 : 1;`
+    // If white is true, dir is -1.
+    // If rank is 0, shield_rank is -1.
+    // Then `if (shield_rank >= 0 ...)` -> false.
+    // So white king at rank 0 got NO shield bonus? That seems like a bug in previous code or I misunderstood rank layout.
+    // Standard: Rank 0 is White pieces. Rank 7 is Black pieces.
+    // White pawns move from Rank 1 to Rank 2...
+    // So forward for White is +1.
+    // Forward for Black is -1.
+    
+    int forward = white ? 1 : -1;
+    
+    int safety_score = 0;
+
+    // 1. Pawn Shield & Storm
+    // Check files: file-1, file, file+1
+    for (int f = std::max(0, file - 1); f <= std::min(7, file + 1); ++f) {
+        uint64_t file_mask = file_masks[f];
+        
+        // Pawn Shield (Friendly pawns)
+        bool has_shield = false;
+        // Check immediate squares in front of king
+        for (int r = rank + forward; r >= 0 && r < 8; r += forward) {
+             // Just check the square immediately in front for shield
+             // Or maybe 2 squares?
+             // Original code checked `rank + dir`.
+             // Let's check rank + forward.
+             if (r == rank + forward) {
+                 if ((white ? pos.WhitePawns : pos.BlackPawns) & (1ULL << (r * 8 + f))) {
+                     safety_score += 10; // Shield bonus
+                     has_shield = true;
+                 }
+             }
+             // Stop after one square for shield? Or check further?
+             // Let's keep it simple.
+             if (has_shield) break;
         }
-      }
+
+        // Open File Penalty (No friendly pawns on file)
+        if (!((white ? pos.WhitePawns : pos.BlackPawns) & file_mask)) {
+            safety_score -= config.king_open_file_penalty;
+            // Semi-open (enemy pawns present)?
+             if (!((white ? pos.BlackPawns : pos.WhitePawns) & file_mask)) {
+                 // Fully open
+                 safety_score -= 10; // Extra penalty
+             }
+        }
+
+        // Pawn Storm (Enemy pawns advancing)
+        uint64_t enemy_pawns = (white ? pos.BlackPawns : pos.WhitePawns) & file_mask;
+        while (enemy_pawns) {
+            int sq = __builtin_ctzll(enemy_pawns);
+            int r = sq / 8;
+            // Distance to king rank
+            int dist = std::abs(r - rank);
+            if (dist <= 3) {
+                safety_score -= config.pawn_storm_penalty * (4 - dist); // Closer = more penalty
+            }
+            enemy_pawns &= enemy_pawns - 1;
+        }
     }
+
     // Taper bonus to middlegame
-    score += white ? (bonus * phase) / 24 : -(bonus * phase) / 24;
+    score += white ? (safety_score * phase) / 24 : -(safety_score * phase) / 24;
   };
-  king_pawn_shield(true);
-  king_pawn_shield(false);
+  king_safety_side(true);
+  king_safety_side(false);
 }
 
 void evaluate_rook_files(const Position &pos, int &score,
@@ -425,6 +702,12 @@ void evaluate_pawns(const Position &pos, int &score, const EvalConfig &config) {
 
   score += countPassedPawns(pos, true) * config.passed_pawn_bonus;
   score -= countPassedPawns(pos, false) * config.passed_pawn_bonus;
+
+  score += countConnectedPawns(pos, true) * config.connected_pawn_bonus;
+  score -= countConnectedPawns(pos, false) * config.connected_pawn_bonus;
+
+  score -= countBackwardPawns(pos, true) * config.backward_pawn_penalty;
+  score += countBackwardPawns(pos, false) * config.backward_pawn_penalty;
 }
 
 void evaluate_material_and_pst(const Position &pos, int &score_mg,
@@ -531,7 +814,7 @@ int evaluate(Position &pos, const EvalConfig &config) {
 
   evaluate_rook_files(pos, score, config);
 
-  evaluate_king_shield(pos, score, phase);
+  evaluate_king_safety(pos, score, phase, config);
 
   evaluate_mobility(pos, score, phase);
 

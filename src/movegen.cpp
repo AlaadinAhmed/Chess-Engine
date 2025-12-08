@@ -12,11 +12,7 @@
 #include <cstdint>
 #include <cstdio>
 
-uint64_t kingAttacks[64];
-uint64_t whitePawnAttacks[64];
-uint64_t blackPawnAttacks[64];
-uint64_t whitePawnMoves[64];
-uint64_t blackPawnMoves[64];
+
 
 void initKingAttacks() {
   for (int square = 0; square < 64; ++square) {
@@ -627,17 +623,18 @@ uint64_t GetPawnAttacks(const Position &pos, int square, bool by_white) {
   return by_white ? whitePawnAttacks[square] : blackPawnAttacks[square];
 }
 
+template<Color Us>
 void generate_moves(Position &pos, MoveList &move_list) {
   move_list.count = 0;
   MoveList quiet_moves;
-  generate_quiet_moves(pos, quiet_moves);
+  generate_quiet_moves<Us>(pos, quiet_moves);
   for (int i = 0; i < quiet_moves.count; i++) {
     if (move_list.count < 255) {
       move_list.moves[move_list.count++] = quiet_moves.moves[i];
     }
   }
   MoveList captures;
-  generate_captures(pos, captures);
+  generate_captures<Us>(pos, captures);
   for (int i = 0; i < captures.count; i++) {
     if (move_list.count < 255) {
       move_list.moves[move_list.count++] = captures.moves[i];
@@ -645,15 +642,25 @@ void generate_moves(Position &pos, MoveList &move_list) {
   }
 }
 
+void generate_moves(Position &pos, MoveList &move_list) {
+    if (pos.whiteToMove) generate_moves<WHITE>(pos, move_list);
+    else generate_moves<BLACK>(pos, move_list);
+}
+
+template<Color Us>
 void generate_captures(Position &pos, MoveList &move_list) {
   move_list.count = 0;
   uint64_t pieces;
-  if (pos.whiteToMove) {
-    uint64_t opponent_pieces = pos.BlackoccupiedSquares;
+  constexpr Color Them = (Us == WHITE ? BLACK : WHITE);
+  
+  if (Us == WHITE) {
+    uint64_t opponent_pieces = pos.BlackoccupiedSquares & ~pos.BlackKing;
     pieces = pos.WhitePawns;
+    // std::cout << "WhitePawns: " << pieces << " Opponent: " << opponent_pieces << std::endl;
     while (pieces) {
       int from = __builtin_ctzll(pieces);
-      uint64_t moves = GetPawnAttacks(pos, from, true) & opponent_pieces;
+      uint64_t moves = GetPawnAttacks(pos, from, true) & (opponent_pieces | pos.enPassant);
+      // if (moves) std::cout << "Pawn at " << from << " captures: " << moves << std::endl;
       while (moves) {
         int to = __builtin_ctzll(moves);
         int to_rank = to / 8;
@@ -739,11 +746,11 @@ void generate_captures(Position &pos, MoveList &move_list) {
       moves &= moves - 1;
     }
   } else {
-    uint64_t opponent_pieces = pos.WhiteoccupiedSquares;
+    uint64_t opponent_pieces = pos.WhiteoccupiedSquares & ~pos.WhiteKing;
     pieces = pos.BlackPawns;
     while (pieces) {
       int from = __builtin_ctzll(pieces);
-      uint64_t moves = GetPawnAttacks(pos, from, false) & opponent_pieces;
+      uint64_t moves = GetPawnAttacks(pos, from, false) & (opponent_pieces | pos.enPassant);
       while (moves) {
         int to = __builtin_ctzll(moves);
         int to_rank = to / 8;
@@ -831,10 +838,16 @@ void generate_captures(Position &pos, MoveList &move_list) {
   }
 }
 
+void generate_captures(Position &pos, MoveList &move_list) {
+    if (pos.whiteToMove) generate_captures<WHITE>(pos, move_list);
+    else generate_captures<BLACK>(pos, move_list);
+}
+
+template<Color Us>
 void generate_quiet_moves(Position &pos, MoveList &move_list) {
   move_list.count = 0;
   uint64_t pieces;
-  if (pos.whiteToMove) {
+  if (Us == WHITE) {
     uint64_t empty_or_opponent =
         ~pos.WhiteoccupiedSquares; // Can move to empty squares or opponent
                                    // squares
@@ -918,6 +931,22 @@ void generate_quiet_moves(Position &pos, MoveList &move_list) {
         moves &= moves - 1;
       }
       pieces &= pieces - 1;
+    }
+
+    // Castling
+    if (pos.castelingRights & WK) {
+        if ((pos.occupiedSquares & (1ULL << 5 | 1ULL << 6)) == 0) {
+            if (!is_square_attacked(pos, 4, false) && !is_square_attacked(pos, 5, false) && !is_square_attacked(pos, 6, false)) {
+                 if (move_list.count < 255) move_list.moves[move_list.count++] = {4, 6};
+            }
+        }
+    }
+    if (pos.castelingRights & WQ) {
+        if ((pos.occupiedSquares & (1ULL << 1 | 1ULL << 2 | 1ULL << 3)) == 0) {
+            if (!is_square_attacked(pos, 4, false) && !is_square_attacked(pos, 3, false) && !is_square_attacked(pos, 2, false)) {
+                if (move_list.count < 255) move_list.moves[move_list.count++] = {4, 2};
+            }
+        }
     }
     uint64_t moves =
         GetKingMoves(pos) & empty_or_opponent & ~pos.BlackoccupiedSquares;
@@ -1012,6 +1041,22 @@ void generate_quiet_moves(Position &pos, MoveList &move_list) {
       }
       pieces &= pieces - 1;
     }
+
+    // Castling
+    if (pos.castelingRights & BK) {
+        if ((pos.occupiedSquares & (1ULL << 61 | 1ULL << 62)) == 0) {
+            if (!is_square_attacked(pos, 60, true) && !is_square_attacked(pos, 61, true) && !is_square_attacked(pos, 62, true)) {
+                if (move_list.count < 255) move_list.moves[move_list.count++] = {60, 62};
+            }
+        }
+    }
+    if (pos.castelingRights & BQ) {
+        if ((pos.occupiedSquares & (1ULL << 57 | 1ULL << 58 | 1ULL << 59)) == 0) {
+            if (!is_square_attacked(pos, 60, true) && !is_square_attacked(pos, 59, true) && !is_square_attacked(pos, 58, true)) {
+                if (move_list.count < 255) move_list.moves[move_list.count++] = {60, 58};
+            }
+        }
+    }
     uint64_t moves =
         GetKingMoves(pos) & empty_or_opponent & ~pos.WhiteoccupiedSquares;
     int from = __builtin_ctzll(pos.BlackKing);
@@ -1024,6 +1069,18 @@ void generate_quiet_moves(Position &pos, MoveList &move_list) {
     }
   }
 }
+
+void generate_quiet_moves(Position &pos, MoveList &move_list) {
+    if (pos.whiteToMove) generate_quiet_moves<WHITE>(pos, move_list);
+    else generate_quiet_moves<BLACK>(pos, move_list);
+}
+
+template void generate_moves<WHITE>(Position&, MoveList&);
+template void generate_moves<BLACK>(Position&, MoveList&);
+template void generate_captures<WHITE>(Position&, MoveList&);
+template void generate_captures<BLACK>(Position&, MoveList&);
+template void generate_quiet_moves<WHITE>(Position&, MoveList&);
+template void generate_quiet_moves<BLACK>(Position&, MoveList&);
 int make_count = 0;
 int unmake_count = 0;
 

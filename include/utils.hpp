@@ -27,9 +27,6 @@ Move uci_to_move(std::string uci_move);
  */
 std::string move_to_uci(Move move);
 
-// Opening book helper
-std::string get_book_move(const Position &pos, const std::string &book_file_path);
-
 /**
  * @brief Performs a Static Exchange Evaluation (SEE).
  *

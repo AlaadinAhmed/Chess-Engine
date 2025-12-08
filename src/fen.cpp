@@ -67,7 +67,7 @@ void parseFEN(Position &pos, std::string fen){
             int file = en_passant_str[0] - 'a';
             int rank = en_passant_str[1] - '1';
             if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-                pos.enPassant = rank * 8 + file;
+                pos.enPassant = 1ULL << (rank * 8 + file);
             } else {
                 std::cout << "info string Error parsing FEN: Invalid en passant square: " << en_passant_str << std::endl;
                 return;
@@ -93,7 +93,14 @@ void parseFEN(Position &pos, std::string fen){
     }
 
 
-    pos.BlackoccupiedSquares = pos.BlackBishops | pos.BlackKing | pos.BlackKnights | pos.BlackPawns | pos.BlackQueen | pos.BlackRooks;
+    pos.BlackoccupiedSquares = 0;
+    pos.BlackoccupiedSquares |= (uint64_t)pos.BlackBishops;
+    pos.BlackoccupiedSquares |= (uint64_t)pos.BlackKing;
+    pos.BlackoccupiedSquares |= (uint64_t)pos.BlackKnights;
+    pos.BlackoccupiedSquares |= (uint64_t)pos.BlackPawns;
+    pos.BlackoccupiedSquares |= (uint64_t)pos.BlackQueen;
+    pos.BlackoccupiedSquares |= (uint64_t)pos.BlackRooks;
+    
     pos.WhiteoccupiedSquares = pos.WhiteBishops | pos.WhiteKing | pos.WhiteKnights | pos.WhitePawns | pos.WhiteQueen | pos.WhiteRooks;
     pos.occupiedSquares = pos.BlackoccupiedSquares | pos.WhiteoccupiedSquares;
     pos.emptySquares = ~pos.occupiedSquares;
@@ -156,8 +163,9 @@ void positionToFEN(const Position &pos, char *fen_string) {
     if (pos.enPassant == 0) {
         fen_string[char_idx++] = '-';
     } else {
-        fen_string[char_idx++] = ('a' + (pos.enPassant % 8));
-        fen_string[char_idx++] = ('1' + (pos.enPassant / 8));
+        int ep_sq = __builtin_ctzll(pos.enPassant);
+        fen_string[char_idx++] = ('a' + (ep_sq % 8));
+        fen_string[char_idx++] = ('1' + (ep_sq / 8));
     }
     fen_string[char_idx++] = ' ';
 

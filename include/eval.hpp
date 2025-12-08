@@ -23,6 +23,10 @@ struct EvalConfig {
     int tempo_bonus;             ///< A small bonus for the side to move.
     int rook_open_file_bonus;    ///< Bonus for a rook on an open file.
     int rook_semi_open_file_bonus; ///< Bonus for a rook on a semi-open file.
+    int backward_pawn_penalty;   ///< Penalty for each backward pawn.
+    int connected_pawn_bonus;    ///< Bonus for each connected pawn.
+    int king_open_file_penalty;  ///< Penalty for open file near king.
+    int pawn_storm_penalty;      ///< Penalty for enemy pawns storming the king.
 };
 
 /// @brief The default set of evaluation parameters used by the engine.

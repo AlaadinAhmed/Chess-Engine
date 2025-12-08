@@ -114,6 +114,9 @@ void undomove (Position& pos, Move m);
  * @param pos The current board position.
  * @param move_list A reference to a MoveList that will be populated with the generated moves.
  */
+template<Color Us>
+void generate_moves(Position &pos, MoveList &move_list);
+
 void generate_moves(Position &pos, MoveList &move_list);
 
 /**
@@ -123,6 +126,9 @@ void generate_moves(Position &pos, MoveList &move_list);
  * @param pos The current board position.
  * @param move_list A reference to a MoveList that will be populated with the generated captures.
  */
+template<Color Us>
+void generate_captures(Position &pos, MoveList &move_list);
+
 void generate_captures(Position &pos, MoveList &move_list);
 
 /**
@@ -131,6 +137,9 @@ void generate_captures(Position &pos, MoveList &move_list);
  * @param pos The current board position.
  * @param move_list A reference to a MoveList that will be populated with the generated quiet moves.
  */
+
+template<Color Us>
+void generate_quiet_moves(Position &pos, MoveList &move_list);
 
 void generate_quiet_moves(Position &pos, MoveList &move_list);
 

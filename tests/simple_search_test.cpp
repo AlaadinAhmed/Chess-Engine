@@ -18,7 +18,7 @@ int main() {
     std::cout << "Testing search with depth 5..." << std::endl;
     
     Move best_move;
-    int score = search(pos, 7, 5000, best_move);
+    int score = search(pos, 10, 10000, best_move);
     
     std::cout << "Search returned: " << move_to_uci(best_move) << " with score " << score << std::endl;
     std::cout << "Move details: from=" << best_move.from << " to=" << best_move.to << std::endl;

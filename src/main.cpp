@@ -1,3 +1,4 @@
+#include "book.hpp"
 #include "fen.hpp"
 #include "globals.hpp"
 #include "hash.hpp"
@@ -31,6 +32,7 @@ void uci_loop() {
       std::cout << "option name Threads type spin default " << num_threads
                 << " min 1 max 1024" << std::endl;
       std::cout << "option name Debug type check default false" << std::endl;
+      std::cout << "option name OwnBook type check default true" << std::endl;
       std::cout << "uciok" << std::endl;
     } else if (token == "isready") {
       if (search_thread.joinable()) {
@@ -56,6 +58,10 @@ void uci_loop() {
         std::string value;
         iss >> value;
         debug_mode = (value == "true");
+      } else if (name == "OwnBook") {
+        std::string value;
+        iss >> value;
+        own_book_enabled = (value == "true");
       }
     } else if (token == "position") {
       if (search_thread.joinable()) {
@@ -146,7 +152,24 @@ int main() {
   zkey.initKeys();
   initKingAttacks();
   initPawnAttacks();
+  initPawnAttacks();
   initPawnMoves();
+  init_lmr();
+  
+  // Try to load book from multiple locations
+  std::vector<std::string> book_paths = {"book/book.txt", "../book/book.txt", "../../book/book.txt", "book.txt"};
+  bool book_loaded = false;
+  for (const auto& path : book_paths) {
+      if (opening_book.load_from_file(path)) {
+          std::cout << "info string Loaded book from " << path << std::endl;
+          book_loaded = true;
+          break;
+      }
+  }
+  if (!book_loaded) {
+      std::cout << "info string Warning: Could not load opening book." << std::endl;
+  }
+
   num_threads = std::thread::hardware_concurrency();
   uci_loop();
   log_debug("Engine finished.");

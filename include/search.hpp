@@ -80,3 +80,9 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move);
  * @return The score of the best move.
  */
 int search_root_parallel(Position &pos, int max_depth, long long move_time, Move &best_move);
+
+/**
+ * @brief Initializes the Late Move Reduction (LMR) table.
+ * This must be called once at program startup.
+ */
+void init_lmr();

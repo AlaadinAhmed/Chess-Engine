@@ -26,4 +26,5 @@ private:
     Stage stage;
     MoveList moves;
     int move_index;
+    Move prev_move;
 };

@@ -38,6 +38,11 @@ enum PieceType {
     KING
 };
 
+enum Color {
+    WHITE,
+    BLACK
+};
+
 inline PieceType get_piece_type(Pieces p) {
     switch (p) {
         case W_PAWN: case B_PAWN: return PAWN;

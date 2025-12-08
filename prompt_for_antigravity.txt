@@ -1,0 +1,16 @@
+You are an expert chess engine developer. Your task is to further optimize the OctoKnight engine to reach Stockfish-level performance (>10M NPS).
+
+Current Status:
+- **Staged Move Generation**: Implemented (TT -> Captures -> Quiet).
+- **Incremental Evaluation**: Implemented for Material and PST.
+- **Opening Book**: Implemented (In-memory hash map).
+- **Search Pruning**: Implemented Null Move, Razoring, Futility, LMR, SEE Pruning, Late Move Pruning.
+- **Performance**: ~1M NPS, Node count reduced by ~35%.
+
+Goals:
+1.  **Advanced Move Generation**: Investigate if templated move generation or further bitboard optimizations can speed up `generate_moves`.
+2.  **Search Heuristics**: Tune History Pruning and Null Move parameters. Implement History Leaf Pruning.
+3.  **Parallel Search**: Optimize Lazy SMP implementation.
+4.  **Code Profiling**: Identify remaining hotspots in `evaluate` or `search`.
+
+Please analyze the codebase and propose specific code changes to achieve these goals.

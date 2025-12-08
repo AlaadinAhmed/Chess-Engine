@@ -65,31 +65,10 @@ void log_debug(const std::string& message) {
 }
 
 // Simple text-based opening book: lines of "<fen>;<uci>"
-std::string get_book_move(const Position &pos, const std::string &book_file_path) {
-    std::ifstream fin(book_file_path);
-    if (!fin.is_open()) {
-        return std::string();
-    }
-    std::string line;
-    while (std::getline(fin, line)) {
-        if (line.empty()) continue;
-        std::stringstream ss(line);
-        std::string fen_str, uci;
-        if (!std::getline(ss, fen_str, ';')) continue;
-        if (!std::getline(ss, uci)) continue;
-        Position cmp;
-        parseFEN(cmp, fen_str);
-        if (cmp.WhitePawns == pos.WhitePawns && cmp.BlackPawns == pos.BlackPawns &&
-            cmp.WhiteKnights == pos.WhiteKnights && cmp.BlackKnights == pos.BlackKnights &&
-            cmp.WhiteBishops == pos.WhiteBishops && cmp.BlackBishops == pos.BlackBishops &&
-            cmp.WhiteRooks == pos.WhiteRooks && cmp.BlackRooks == pos.BlackRooks &&
-            cmp.WhiteQueen == pos.WhiteQueen && cmp.BlackQueen == pos.BlackQueen &&
-            cmp.WhiteKing == pos.WhiteKing && cmp.BlackKing == pos.BlackKing &&
-            cmp.whiteToMove == pos.whiteToMove && cmp.castelingRights == pos.castelingRights &&
-            cmp.enPassant == pos.enPassant) return uci;
-    }
-    return std::string();
-}
+// std::string get_book_move(const Position &pos, const std::string &book_file_path) {
+//    // Implementation removed in favor of Book class
+//    return "";
+// }
 
 const int see_piece_values[] = {0, 100, 320, 330, 500, 900, 10000}; // NO_PIECE_TYPE, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 
