@@ -26,8 +26,8 @@ void init_lmr() {
             if (depth == 0 || move == 0) {
                 lmr_table[depth][move] = 0;
             } else {
-                // More aggressive LMR: divisor 0.9 for higher reductions
-                lmr_table[depth][move] = 1.5 + std::log(depth) * std::log(move) / 0.9;
+                // Balanced LMR: divisor 1.0 for good reductions without too many re-searches
+                lmr_table[depth][move] = 1.0 + std::log(depth) * std::log(move) / 1.0;
             }
         }
     }
@@ -264,11 +264,42 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
         }
     }
 
-    // Futility Pruning (Reverse Futility Pruning) - Extended to depth 9
-    if (current_depth <= 9 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
+    // Probcut - If we have a good enough capture, skip the rest
+    // Try a shallow search and if it beats beta + margin, assume a full search would too
+    if (current_depth >= 5 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove)) {
+        int probcut_beta = beta + 200;
+        int probcut_depth = current_depth - 4;
+        
+        MoveList probcut_moves;
+        generate_captures(pos, probcut_moves);
+        
+        for (int i = 0; i < probcut_moves.count; i++) {
+            Move m = probcut_moves.moves[i];
+            makemove(pos, m);
+            
+            // Check legality
+            bool mover_white = !pos.whiteToMove;
+            uint64_t kbb = mover_white ? pos.WhiteKing : pos.BlackKing;
+            if (kbb == 0 || is_square_attacked(pos, __builtin_ctzll(kbb), !mover_white)) {
+                undomove(pos, m);
+                continue;
+            }
+            
+            Move temp;
+            int score = -alpha_beta_search(pos, probcut_depth, max_depth, -probcut_beta, -probcut_beta + 1, temp, start_time, move_time, false, m);
+            undomove(pos, m);
+            
+            if (score >= probcut_beta) {
+                return probcut_beta;
+            }
+        }
+    }
+
+    // Futility Pruning (Reverse Futility Pruning) - Extended to depth 15
+    if (current_depth <= 15 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
         int se = eval_calculated ? static_eval : evaluate(pos);
-        // Very aggressive margin: 100 + 100*depth
-        int margin = 100 + 100 * current_depth;
+        // Very aggressive margin: 80 + 70*depth
+        int margin = 80 + 70 * current_depth;
         if (se - margin >= beta) {
             return se; // Reverse Futility Pruning (Static Null Move Pruning)
         }
