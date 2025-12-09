@@ -20,15 +20,17 @@ bool init(const char* network_file) {
         return true;
     }
     
-    try {
-        nnue_init(network_file);
-        initialized = true;
-        std::cout << "info string NNUE loaded: " << network_file << std::endl;
-        return true;
-    } catch (...) {
-        std::cerr << "info string Failed to load NNUE: " << network_file << std::endl;
-        return false;
+    // Check if file exists first
+    FILE* f = fopen(network_file, "rb");
+    if (!f) {
+        return false;  // File not found, don't print message, just return false
     }
+    fclose(f);
+    
+    nnue_init(network_file);
+    initialized = true;
+    std::cout << "info string NNUE loaded: " << network_file << std::endl;
+    return true;
 }
 
 bool is_initialized() {
@@ -175,7 +177,11 @@ int evaluate(const Position& pos) {
 
 } // namespace nnue
 
-// Extern function for eval.cpp to call (outside namespace for C linkage)
-extern "C" int nnue_evaluate_position(Position& pos) {
+// Extern functions for eval.cpp to call (outside namespace)
+int nnue_evaluate_position(Position& pos) {
     return nnue::evaluate(pos);
+}
+
+bool nnue_is_initialized() {
+    return nnue::is_initialized();
 }

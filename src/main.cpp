@@ -8,6 +8,7 @@
 #include "search.hpp"
 #include "tt.hpp"
 #include "utils.hpp"
+#include "nnue.hpp"
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -155,6 +156,19 @@ int main() {
   initPawnAttacks();
   initPawnMoves();
   init_lmr();
+  
+  // Try to load NNUE from multiple locations
+  std::vector<std::string> nnue_paths = {"nnue/nn-04cf2b4ed1da.nnue", "../nnue/nn-04cf2b4ed1da.nnue", "../../nnue/nn-04cf2b4ed1da.nnue"};
+  bool nnue_loaded = false;
+  for (const auto& path : nnue_paths) {
+      if (nnue::init(path.c_str())) {
+          nnue_loaded = true;
+          break;
+      }
+  }
+  if (!nnue_loaded) {
+      std::cout << "info string Warning: Could not load NNUE, using classical eval." << std::endl;
+  }
   
   // Try to load book from multiple locations
   std::vector<std::string> book_paths = {"book/book.txt", "../book/book.txt", "../../book/book.txt", "book.txt"};
