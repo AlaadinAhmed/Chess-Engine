@@ -10,9 +10,17 @@
 namespace nnue {
 
 /**
- * Initialize the NNUE evaluator with a network file
- * @param network_file Path to the .nnue file
+ * Initialize the NNUE evaluator with two network files (big + small)
+ * @param big_net_file Path to the big .nnue file (~65MB)
+ * @param small_net_file Path to the small .nnue file (~3.5MB)
  * @return true if initialization succeeded
+ */
+bool init(const char* big_net_file, const char* small_net_file);
+
+/**
+ * Legacy single-file init (not supported by new library)
+ * @param network_file Path to the .nnue file
+ * @return false (not supported)
  */
 bool init(const char* network_file);
 

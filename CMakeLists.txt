@@ -48,17 +48,25 @@ endif()
 file(GLOB OCTOKNIGHT_SRC "src/*.cpp")
 list(REMOVE_ITEM OCTOKNIGHT_SRC "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
-# NNUE probe library
+# Stockfish NNUE probe library (supports HalfKAv2 format from Stockfish 14+)
 add_library(nnue_probe STATIC
-    extern/nnue-probe/src/nnue.cpp
-    extern/nnue-probe/src/misc.cpp
+    extern/stockfish_nnue_probe/bitboard.cpp
+    extern/stockfish_nnue_probe/probe.cpp
+    extern/stockfish_nnue_probe/evaluate.cpp
+    extern/stockfish_nnue_probe/misc.cpp
+    extern/stockfish_nnue_probe/position.cpp
+    extern/stockfish_nnue_probe/nnue/evaluate_nnue.cpp
+    extern/stockfish_nnue_probe/nnue/features/half_ka_v2_hm.cpp
 )
-target_include_directories(nnue_probe PUBLIC extern/nnue-probe/src)
+target_include_directories(nnue_probe PUBLIC 
+    extern/stockfish_nnue_probe
+    extern/stockfish_nnue_probe/nnue
+)
 # Enable SIMD optimizations if available
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-mavx2 HAS_AVX2)
 if(HAS_AVX2)
-    target_compile_options(nnue_probe PRIVATE -mavx2)
+    target_compile_options(nnue_probe PRIVATE -mavx2 -DUSE_AVX2)
 endif()
 
 add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})

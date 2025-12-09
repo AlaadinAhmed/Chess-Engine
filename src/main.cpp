@@ -157,11 +157,15 @@ int main() {
   initPawnMoves();
   init_lmr();
   
-  // Try to load NNUE from multiple locations
-  std::vector<std::string> nnue_paths = {"nnue/nn-04cf2b4ed1da.nnue", "../nnue/nn-04cf2b4ed1da.nnue", "../../nnue/nn-04cf2b4ed1da.nnue"};
+  // Try to load NNUE from multiple locations (requires both big and small network)
+  const std::string big_net = "nn-b1a57edbea57.nnue";
+  const std::string small_net = "nn-baff1ede1f90.nnue";
+  std::vector<std::string> nnue_dirs = {"nnue/", "../nnue/", "../../nnue/"};
   bool nnue_loaded = false;
-  for (const auto& path : nnue_paths) {
-      if (nnue::init(path.c_str())) {
+  for (const auto& dir : nnue_dirs) {
+      std::string big_path = dir + big_net;
+      std::string small_path = dir + small_net;
+      if (nnue::init(big_path.c_str(), small_path.c_str())) {
           nnue_loaded = true;
           break;
       }
