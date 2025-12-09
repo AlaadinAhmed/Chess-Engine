@@ -48,7 +48,21 @@ endif()
 file(GLOB OCTOKNIGHT_SRC "src/*.cpp")
 list(REMOVE_ITEM OCTOKNIGHT_SRC "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
+# NNUE probe library
+add_library(nnue_probe STATIC
+    extern/nnue-probe/src/nnue.cpp
+    extern/nnue-probe/src/misc.cpp
+)
+target_include_directories(nnue_probe PUBLIC extern/nnue-probe/src)
+# Enable SIMD optimizations if available
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-mavx2 HAS_AVX2)
+if(HAS_AVX2)
+    target_compile_options(nnue_probe PRIVATE -mavx2)
+endif()
+
 add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})
+target_link_libraries(OctoKnightLib PUBLIC nnue_probe)
 
 add_executable(OctoKnight src/main.cpp)
 target_link_libraries(OctoKnight OctoKnightLib pthread)
