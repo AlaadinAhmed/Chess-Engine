@@ -799,14 +799,7 @@ void evaluate_material_and_pst(const Position &pos, int &score_mg,
   }
 }
 
-int evaluate(Position &pos, const EvalConfig &config) {
-  // Use NNUE evaluation if initialized (runtime check)
-  extern int nnue_evaluate_position(Position& pos);
-  extern bool nnue_is_initialized();
-  if (nnue_is_initialized()) {
-    return nnue_evaluate_position(pos);
-  }
-
+int evaluate_classical(Position &pos, const EvalConfig &config) {
   int score_mg = pos.psq_score_mg;
   int score_eg = pos.psq_score_eg;
   int phase = calculateGamePhase(pos); // 0..24
@@ -831,4 +824,15 @@ int evaluate(Position &pos, const EvalConfig &config) {
 
   // Return score from side-to-move perspective
   return pos.whiteToMove ? score : -score;
+}
+
+int evaluate(Position &pos, const EvalConfig &config) {
+  // Use NNUE evaluation if initialized (runtime check)
+  extern int nnue_evaluate_position(Position& pos);
+  extern bool nnue_is_initialized();
+  if (nnue_is_initialized()) {
+    return nnue_evaluate_position(pos);
+  }
+
+  return evaluate_classical(pos, config);
 }

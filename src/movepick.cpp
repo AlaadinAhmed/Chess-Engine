@@ -2,7 +2,18 @@
 #include "movegen.hpp"
 #include "utils.hpp"
 #include "pst.hpp"
+#include "see.hpp"
 #include <algorithm>
+
+static bool gives_check(Position& pos, Move m) {
+    makemove(pos, m);
+    bool opponent_is_white = pos.whiteToMove;
+    uint64_t king_bb = opponent_is_white ? pos.WhiteKing : pos.BlackKing;
+    int king_sq = __builtin_ctzll(king_bb);
+    bool check = is_square_attacked(pos, king_sq, !opponent_is_white);
+    undomove(pos, m);
+    return check;
+}
 
 int get_pst_val(Pieces p, int sq) {
     switch(p) {
@@ -38,11 +49,27 @@ void MovePicker::score_captures() {
         }
     };
 
+    int good_count = 0;
+    bad_captures.count = 0;
+
     for (int i = 0; i < moves.count; i++) {
         Pieces victim = get_piece_at(pos, moves.moves[i].to);
         Pieces aggressor = get_piece_at(pos, moves.moves[i].from);
-        moves.moves[i].score = piece_value(victim) - piece_value(aggressor) + 100000;
+        int score = piece_value(victim) - piece_value(aggressor) + 100000;
+        
+        if (gives_check(pos, moves.moves[i])) {
+            score += 10000;
+        }
+
+        moves.moves[i].score = score;
+
+        if (see(pos, moves.moves[i]) < 0) {
+            bad_captures.moves[bad_captures.count++] = moves.moves[i];
+        } else {
+            moves.moves[good_count++] = moves.moves[i];
+        }
     }
+    moves.count = good_count;
 }
 
 Move MovePicker::next_move() {
@@ -103,12 +130,18 @@ Move MovePicker::next_move() {
                     score = 50000; // Killer moves high priority
                 } else {
                     score = history.history_scores[get_piece_at(pos, moves.moves[i].from)][moves.moves[i].to];
+                    score += history.get_counter_move_history_score(prev_move, moves.moves[i], pos);
                     if (moves.moves[i].from == counter_move.from && moves.moves[i].to == counter_move.to) {
                         score += 10000; // Counter move bonus (high priority)
                     }
                     // Add PSQT bonus
                     Pieces p = get_piece_at(pos, moves.moves[i].from);
                     score += get_pst_val(p, moves.moves[i].to) - get_pst_val(p, moves.moves[i].from);
+                    
+                    // Check bonus
+                    if (gives_check(pos, moves.moves[i])) {
+                        score += 10000;
+                    }
                 }
                 moves.moves[i].score = score;
             }
@@ -134,6 +167,17 @@ Move MovePicker::next_move() {
         }
         
         stage = BAD_CAPTURES;
+        move_index = 0;
+    }
+
+    if (stage == BAD_CAPTURES) {
+        if (move_index < bad_captures.count) {
+            Move m = bad_captures.moves[move_index++];
+            if (m.from == tt_move.from && m.to == tt_move.to) {
+                return next_move();
+            }
+            return m;
+        }
     }
 
     return {};

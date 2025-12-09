@@ -2,6 +2,7 @@
 #include "search.hpp"
 #include "utils.hpp"
 #include "book.hpp"
+#include "see.hpp"
 
 #include <atomic>
 #include <algorithm>
@@ -19,6 +20,23 @@ std::atomic<int> max_seldepth = 0;
 
 History history;
 int lmr_table[64][64];
+
+struct EvalCacheEntry {
+    uint64_t key;
+    int score;
+};
+EvalCacheEntry eval_cache[16384];
+
+int cached_evaluate(Position& pos) {
+    uint64_t key = pos.zobrist_key;
+    int index = key % 16384;
+    if (eval_cache[index].key == key) {
+        return eval_cache[index].score;
+    }
+    int score = evaluate(pos);
+    eval_cache[index] = {key, score};
+    return score;
+}
 
 void init_lmr() {
     for (int depth = 0; depth < 64; depth++) {
@@ -66,7 +84,7 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
     }
 
     nodes_searched++; // Increment nodes searched
-    int stand_pat = evaluate(pos);
+    int stand_pat = cached_evaluate(pos);
     if (stand_pat >= beta) {
         return beta;
     }
@@ -226,13 +244,25 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
     int static_eval = 0;
     bool eval_calculated = false;
     if (current_depth <= 7) {
-        static_eval = evaluate(pos);
+        // Lazy Eval
+        if (!is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove)) {
+             int classical = evaluate_classical(pos);
+             int margin = 500;
+             if (classical - margin >= beta) {
+                 return beta;
+             }
+             if (classical + margin <= alpha) {
+                 return alpha;
+             }
+        }
+
+        static_eval = cached_evaluate(pos);
         eval_calculated = true;
     }
 
     // Null Move Pruning
     if (allow_null && current_depth >= 3 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && pos.has_non_pawn_material(pos.whiteToMove)) {
-        int se = eval_calculated ? static_eval : evaluate(pos);
+        int se = eval_calculated ? static_eval : cached_evaluate(pos);
         // Very aggressive NMP: R = 8 + depth/3 for maximum cutoffs
         int R = 8 + current_depth / 3 + std::min(4, std::max(0, (se - beta) / 80)); 
         
@@ -254,7 +284,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
     
     // Razoring - extended to depth 4
     if (current_depth <= 4 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
-        int se = eval_calculated ? static_eval : evaluate(pos);
+        int se = eval_calculated ? static_eval : cached_evaluate(pos);
         int razor_margin = 150 + 80 * current_depth * current_depth;
         if (se + razor_margin < alpha) {
             int q_score = quiescence(pos, alpha, beta, start_time, move_time, max_depth); 
@@ -297,7 +327,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
 
     // Futility Pruning (Reverse Futility Pruning) - Extended to depth 15
     if (current_depth <= 15 && !is_square_attacked(pos, pos.whiteToMove ? __builtin_ctzll(pos.WhiteKing) : __builtin_ctzll(pos.BlackKing), !pos.whiteToMove) && alpha < beta - 1) {
-        int se = eval_calculated ? static_eval : evaluate(pos);
+        int se = eval_calculated ? static_eval : cached_evaluate(pos);
         // Very aggressive margin: 80 + 70*depth
         int margin = 80 + 70 * current_depth;
         if (se - margin >= beta) {
@@ -533,6 +563,7 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
                 history.update_killer_move(current_move, current_depth); // Using depth as ply proxy
                 history.update_history_score(pos, current_move, current_depth);
                 history.update_counter_move(prev_move, current_move);
+                history.update_counter_move_history(prev_move, current_move, current_depth, pos);
             }
             
             tt.save(pos.zobrist_key, current_depth, HASH_FLAG_BETA, beta, local_best_move); 

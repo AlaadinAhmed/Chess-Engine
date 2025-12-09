@@ -98,3 +98,5 @@ void evaluate_material_and_pst(const Position &pos, int &score_mg, int &score_eg
  * @return The score of the position in centipawns. Positive favors white, negative favors black.
  */
 int evaluate(Position &pos, const EvalConfig &config = default_eval_config);
+
+int evaluate_classical(Position &pos, const EvalConfig &config = default_eval_config);

@@ -25,6 +25,7 @@ private:
     int ply;
     Stage stage;
     MoveList moves;
+    MoveList bad_captures;
     int move_index;
     Move prev_move;
 };
