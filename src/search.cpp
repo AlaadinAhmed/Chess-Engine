@@ -561,15 +561,11 @@ int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
         lmr_init = true;
     }
 
-    // Check for book move
+    // Check for book move (just a hint, we still do real search)
+    Move book_move;
     if (own_book_enabled) {
-        Move book_move = opening_book.get_move(pos);
-        if (book_move.from != 0 || book_move.to != 0) {
-            best_move = book_move;
-            std::cout << "info depth 1 score cp 0 nodes 0 pv " << move_to_uci(book_move) << std::endl;
-            searching = false;
-            return 0;
-        }
+        book_move = opening_book.get_move(pos);
+        // Book move will be used as hint but we still search
     }
 
     Move current_best_move;
