@@ -3,6 +3,7 @@
 #include "bitboard.hpp"
 #include "globals.hpp"
 #include "hash.hpp"
+#include "nnue.hpp"
 
 Pieces get_piece_at(const Position &pos, int sq) {
     uint64_t bb = 1ULL << sq;
@@ -41,6 +42,11 @@ void Position::setFen(const std::string& fen_string) {
 }
 
 void Position::make_null_move() {
+    // Update NNUE accumulator
+    if (nnue::is_initialized()) {
+        nnue::make_null_move(*this);
+    }
+
     // A null move just switches the side to move and updates the Zobrist key.
     // The en passant square is also cleared.
     if (enPassant != 0) {
@@ -61,6 +67,11 @@ void Position::unmake_null_move(uint64_t saved_ep) {
         enPassant = saved_ep;
         int ep_sq = __builtin_ctzll(enPassant);
         zobrist_key ^= zkey.epKeys[ep_sq % 8];
+    }
+    
+    // Revert NNUE accumulator
+    if (nnue::is_initialized()) {
+        nnue::undo_null_move(*this);
     }
 }
 

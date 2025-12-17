@@ -3,6 +3,7 @@
 #include "utils.hpp"
 #include "book.hpp"
 #include "see.hpp"
+#include "nnue.hpp"
 
 #include <atomic>
 #include <algorithm>
@@ -71,6 +72,11 @@ int quiescence(Position &pos, int alpha, int beta, const std::chrono::high_resol
     
     if (!searching) {
         return 0; // Stop early if search is interrupted
+    }
+
+    // Prevent infinite recursion
+    if (ply > 100) {
+        return cached_evaluate(pos);
     }
 
     // Check time limit more frequently (every 2048 nodes)
@@ -586,6 +592,12 @@ int alpha_beta_search(Position &pos, int current_depth, int max_depth, int alpha
 
 int search(Position &pos, int max_depth, long long move_time, Move &best_move) {
     searching = true;
+    
+    // Refresh NNUE accumulator for the root position
+    if (nnue::is_initialized()) {
+        nnue::refresh_accumulator(pos);
+    }
+
     static bool lmr_init = false;
     if (!lmr_init) {
         init_lmr();
@@ -775,6 +787,7 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
     // Worker function: each thread does iterative deepening
     auto worker = [&](int thread_id) {
         Position local_pos = pos;
+
         Move local_best;
         int local_best_score = -1000000;
         
@@ -862,6 +875,12 @@ int search_root_parallel(Position &pos, int max_depth, long long move_time, Move
                             }
                         }
                         history_ply = saved_history_ply;
+                        
+                        // Reset NNUE accumulator to root state after PV extraction modified it
+                        if (nnue::is_initialized()) {
+                            nnue::refresh_accumulator(pos);
+                            // nnue::print_stats();
+                        }
                         
                         long long nps = 0;
                         if (duration > 0) {

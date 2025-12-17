@@ -2,6 +2,7 @@
 #include "utils.hpp"
 #include "bitboard.hpp"
 #include "magics.hpp"
+#include "globals.hpp"
 #include <algorithm>
 
 static int piece_values[] = {

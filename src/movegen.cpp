@@ -9,6 +9,7 @@
 #include "print.hpp"
 #include "search.hpp"
 #include "utils.hpp"
+#include "nnue.hpp"
 #include <cstdint>
 #include <cstdio>
 
@@ -93,6 +94,11 @@ void initPawnMoves() {
 const int WK = 1, WQ = 2, BK = 4, BQ = 8;
 
 void makemove(Position &pos, Move m) {
+  // Update NNUE accumulator incrementally
+  if (nnue::is_initialized()) {
+      nnue::make_move(pos, m);
+  }
+
   UndoInfo &undo = undo_history[history_ply];
   undo.oldHashKey = pos.zobrist_key;
   undo.oldCastelingRights = pos.castelingRights;
@@ -541,6 +547,11 @@ void undomove(Position &pos, Move m) {
   pos.occupiedSquares = pos.WhiteoccupiedSquares | pos.BlackoccupiedSquares;
   pos.emptySquares = ~pos.occupiedSquares;
   pos.zobrist_key = undo.oldHashKey;
+
+  // Revert NNUE accumulator
+  if (nnue::is_initialized()) {
+      nnue::undo_move(pos, m);
+  }
 }
 
 bool is_square_attacked(const Position &pos, int square, bool by_white) {

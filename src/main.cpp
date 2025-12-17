@@ -46,6 +46,15 @@ void uci_loop() {
         searching = false;
         search_thread.join();
       }
+      // Default options
+      // Note: The original code did not have an 'options' map.
+      // This insertion assumes 'options' is a global or accessible map.
+      // If 'options' is not defined, this will cause a compilation error.
+      // For now, I'm inserting it as requested, but it might need further context.
+      // If the intent was to set 'num_threads' default, that would be a different change.
+      // options["Hash"] = Option(16, 1, 1024); // Option struct and map not defined in provided code
+      // options["Threads"] = Option(1, 1, 1024); // Option struct and map not defined in provided code
+      // options["MultiPV"] = Option(1, 1, 500); // Option struct and map not defined in provided code
       pos.setStartingPosition(); // Reset to starting position
     } else if (token == "setoption") {
       std::string name_token, value_token;
@@ -188,7 +197,9 @@ int main() {
       std::cout << "info string Warning: Could not load opening book." << std::endl;
   }
 
+  // Default to hardware concurrency
   num_threads = std::thread::hardware_concurrency();
+  if (num_threads == 0) num_threads = 1;
   uci_loop();
   log_debug("Engine finished.");
   return 0;

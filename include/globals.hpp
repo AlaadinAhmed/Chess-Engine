@@ -18,3 +18,9 @@ extern bool own_book_enabled;
 extern std::string book_path;
 extern int num_threads;
 extern UndoInfo undo_history[MAX_PLY];
+
+extern uint64_t kingAttacks[64];
+extern uint64_t whitePawnAttacks[64];
+extern uint64_t blackPawnAttacks[64];
+extern uint64_t whitePawnMoves[64];
+extern uint64_t blackPawnMoves[64];

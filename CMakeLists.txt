@@ -13,9 +13,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_CXX_STANDARD 17)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 set(CMAKE_CXX_FLAGS_RELEASE
-    "${CMAKE_CXX_FLAGS_RELEASE} -march=native -flto -O3 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
-# set(CMAKE_BUILD_TYPE Release) Only proceed if CMAKE_BUILD_TYPE has NOT been
+    "${CMAKE_CXX_FLAGS_RELEASE} -march=native -flto -O3 -DNDEBUG -mavx2 -mfma -DUSE_AVX2 -DNNUE_EMBEDDING_OFF")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -mavx2 -mfma -DUSE_AVX2 -DNNUE_EMBEDDING_OFF")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma -DUSE_AVX2 -DNNUE_EMBEDDING_OFF")
 #
 # explicitly set
 if(NOT CMAKE_BUILD_TYPE)
@@ -62,15 +62,14 @@ target_include_directories(nnue_probe PUBLIC
     extern/stockfish_nnue_probe
     extern/stockfish_nnue_probe/nnue
 )
-# Enable SIMD optimizations if available
-include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-mavx2 HAS_AVX2)
-if(HAS_AVX2)
-    target_compile_options(nnue_probe PRIVATE -mavx2 -DUSE_AVX2)
-endif()
+
+# Force AVX2 for nnue_probe
+target_compile_options(nnue_probe PRIVATE -mavx2 -mfma -DUSE_AVX2)
 
 add_library(OctoKnightLib STATIC ${OCTOKNIGHT_SRC})
 target_link_libraries(OctoKnightLib PUBLIC nnue_probe)
+# Force AVX2 for OctoKnightLib
+target_compile_options(OctoKnightLib PRIVATE -mavx2 -mfma -DUSE_AVX2)
 
 add_executable(OctoKnight src/main.cpp)
 target_link_libraries(OctoKnight OctoKnightLib pthread)

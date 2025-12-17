@@ -38,6 +38,39 @@ int evaluate(const Position& pos);
 bool is_initialized();
 
 /**
+ * Update NNUE accumulator when a move is made
+ * @param pos The position BEFORE the move is made (to detect captures)
+ * @param m The move being made
+ */
+void make_move(const Position& pos, Move m);
+
+/**
+ * Revert NNUE accumulator when a move is undone
+ * @param pos The position AFTER the move is undone (restored state)
+ * @param m The move being undone
+ */
+void undo_move(const Position& pos, Move m);
+
+/**
+ * Update NNUE accumulator when a null move is made
+ * @param pos The position BEFORE the null move is made
+ */
+void make_null_move(const Position& pos);
+
+/**
+ * Revert NNUE accumulator when a null move is undone
+ * @param pos The position AFTER the null move is undone (restored state)
+ */
+void undo_null_move(const Position& pos);
+
+/**
+ * Refresh the NNUE accumulator from scratch (e.g. new game)
+ * @param pos The current position
+ */
+void refresh_accumulator(const Position& pos);
+void print_stats();
+
+/**
  * Shutdown NNUE and free resources
  */
 void shutdown();
